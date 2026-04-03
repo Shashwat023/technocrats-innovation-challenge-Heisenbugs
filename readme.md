@@ -9,7 +9,7 @@ during video calls and reminds them to take medication.
 |-----|------|------|
 | Dev 1 | ML / CV | ml-service/ |
 | Dev 2 | Backend / SpacetimeDB | technocrats-innovation-challenge-Heisenbugs-db/ and bridge/ |
-| Dev 3 | Frontend | frontend/ LLM|
+| Dev 3 | Frontend / LLM | frontend/ | LLM/
 
 ## Folder structure
 

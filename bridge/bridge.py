@@ -1,4 +1,4 @@
-﻿# bridge/bridge.py
+# bridge/bridge.py
 
 import asyncio
 import httpx

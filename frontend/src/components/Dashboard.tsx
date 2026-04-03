@@ -1,17 +1,25 @@
 // frontend/src/components/Dashboard.tsx
-import React, { useState, useCallback, useEffect } from "react";
+// Full caregiver dashboard.
+//
+// MIDDLEWARE: audio recording + snapshots only START once the client
+// (remote peer) has joined the call (callStatus === "connected").
+// Before that, recording is queued and waits.
+
+import React, { useState, useCallback, useRef, useEffect } from "react";
+import VoiceRecorder      from "./VoiceRecorder";
 import LiveSummaryBlock   from "./LiveSummaryBlock";
 import VideoFeed          from "./VideoFeed";
+import SnapshotCapture    from "./SnapshotCapture";
+import { useLiveRedis }     from "../hooks/useLiveRedis";
+import { useVoiceRecorder } from "../hooks/useVoiceRecorder";
 import { useWebRTC }        from "../hooks/useWebRTC";
-import { getDefaultFixtureClients } from "../fixtures/sessionFixtures";
+import { endSession, SessionEndResponse } from "../lib/api";
 
-const CLIENTS = getDefaultFixtureClients();
-const DUMMY_SUMMARY = {
-  summary: "Dummy summary placeholder. Redis wiring will feed this panel later.",
-  chunkNumber: 1,
-  timestamp: 1744000000,
-  isPolling: false,
-};
+const CLIENTS = [
+  { id: "person_101", name: "Margaret Johnson", relationship: "Patient" },
+  { id: "person_102", name: "Robert Smith",     relationship: "Patient" },
+  { id: "person_103", name: "Eleanor Davis",    relationship: "Patient" },
+];
 
 // ── Icons ──────────────────────────────────────────────────────────────────────
 const IconBrain = () => (
@@ -22,13 +30,27 @@ const IconBrain = () => (
 );
 const IconPlay  = () => <svg width="15" height="15" viewBox="0 0 24 24" fill="currentColor"><polygon points="5 3 19 12 5 21 5 3"/></svg>;
 const IconStop  = () => <svg width="13" height="13" viewBox="0 0 24 24" fill="currentColor"><rect x="3" y="3" width="18" height="18" rx="2"/></svg>;
+const IconClose = () => (
+  <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round">
+    <line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/>
+  </svg>
+);
+
 const Dashboard: React.FC = () => {
   const [selectedClientId, setSelectedClientId] = useState(CLIENTS[0].id);
+  const [sessionId,        setSessionId]        = useState<string | null>(null);
+  const [isSessionActive,  setIsSessionActive]  = useState(false);
+  const [finalSummary,     setFinalSummary]     = useState<SessionEndResponse | null>(null);
   const [errorToast,       setErrorToast]       = useState<string | null>(null);
-  const [roomId,           setRoomId]           = useState<string | null>(null);
-  const [roomActive,       setRoomActive]       = useState(false);
 
   // ── Hooks ──────────────────────────────────────────────────────────────────
+  const { startRecording, stopRecording, isRecording, currentChunk, error: recorderError } =
+    useVoiceRecorder(sessionId);
+
+  const { summary, chunkNumber, timestamp, isPolling } =
+    useLiveRedis(sessionId, isSessionActive);
+
+
   const {
     callStatus, localStream, remoteStream,
     isHost, joinRoom, leaveCall,
@@ -36,7 +58,31 @@ const Dashboard: React.FC = () => {
     isMicOn, isCamOn, error: webrtcError,
   } = useWebRTC();
 
+  // ── MIDDLEWARE: client-joined gate ─────────────────────────────────────────
   const clientConnected = callStatus === "connected";
+  
+  // Debug logging
+  console.log(`[Dashboard] sessionId=${sessionId}, isSessionActive=${isSessionActive}, clientConnected=${clientConnected}`);
+  console.log(`[Dashboard] Live summary: chunk=${chunkNumber}, summary=${summary?.slice(0, 30)}..., isPolling=${isPolling}`);
+
+  // Track whether we've started recording in this session
+  const recordingStartedRef = useRef(false);
+
+  // When the client connects → start recording (if session is active and not already recording)
+  useEffect(() => {
+    if (isSessionActive && sessionId && clientConnected && !isRecording && !recordingStartedRef.current) {
+      recordingStartedRef.current = true;
+      console.log("[Dashboard] Client connected — starting audio recording + snapshots");
+      startRecording();
+    }
+  }, [isSessionActive, sessionId, clientConnected, isRecording, startRecording]);
+
+  // Reset recording gate when session ends or call drops
+  useEffect(() => {
+    if (!isSessionActive || callStatus === "idle" || callStatus === "disconnected") {
+      recordingStartedRef.current = false;
+    }
+  }, [isSessionActive, callStatus]);
 
   // ── WebRTC error toast ─────────────────────────────────────────────────────
   useEffect(() => {
@@ -48,27 +94,42 @@ const Dashboard: React.FC = () => {
 
   const selectedClient = CLIENTS.find((c) => c.id === selectedClientId) ?? CLIENTS[0];
 
-  // ── Room lifecycle ─────────────────────────────────────────────────────────
+  // ── Start session ──────────────────────────────────────────────────────────
   const handleStartSession = useCallback(async () => {
+    // ✓ FIX#9: Generate truly unique session ID using timestamp + random (prevents collisions)
     const uniqueSuffix = `${Date.now()}_${Math.random().toString(36).substring(2, 9)}`;
-    const id = `${selectedClientId}_room_${uniqueSuffix}`;
-    setRoomId(id);
-    setRoomActive(true);
+    const id = `${selectedClientId}_session_${uniqueSuffix}`;
+    setSessionId(id);
+    setIsSessionActive(true);
+    setFinalSummary(null);
+    recordingStartedRef.current = false;
   }, [selectedClientId]);
 
   // ── Join video call ────────────────────────────────────────────────────────
   const handleJoinCall = useCallback(async () => {
-    if (!roomId) return;
-    await joinRoom(roomId);
-  }, [roomId, joinRoom]);
+    if (!sessionId) return;
+    await joinRoom(sessionId);
+  }, [sessionId, joinRoom]);
 
-  const handleLeaveRoom = useCallback(() => {
+  // ── End session ────────────────────────────────────────────────────────────
+  const handleEndSession = useCallback(async () => {
+    stopRecording();
     leaveCall();
-    setRoomActive(false);
-    setRoomId(null);
-  }, [leaveCall]);
+    setIsSessionActive(false);
+    recordingStartedRef.current = false;
+    if (sessionId) {
+      const result = await endSession(sessionId);
+      if (result) setFinalSummary(result);
+    }
+  }, [sessionId, stopRecording, leaveCall]);
 
-  const waitingForClient = roomActive && callStatus !== "connected" && callStatus !== "idle";
+  const handleDismissFinal = useCallback(() => {
+    setFinalSummary(null);
+    setSessionId(null);
+  }, []);
+
+  // Waiting for client label
+  const waitingForClient = isSessionActive && callStatus !== "connected" && callStatus !== "idle";
 
   // ── Render ──────────────────────────────────────────────────────────────────
   return (
@@ -97,7 +158,7 @@ const Dashboard: React.FC = () => {
             className="select"
             value={selectedClientId}
             onChange={(e) => setSelectedClientId(e.target.value)}
-            disabled={roomActive}
+            disabled={isSessionActive}
           >
             {CLIENTS.map((c) => (
               <option key={c.id} value={c.id}>{c.name}</option>
@@ -111,15 +172,21 @@ const Dashboard: React.FC = () => {
 
         {/* Session controls bar */}
         <div className="session-bar" style={{ marginBottom: "1.25rem" }}>
-          {!roomActive ? (
+          {!isSessionActive ? (
             <button className="btn btn-primary" onClick={handleStartSession}>
-              <IconPlay /> Create Room
+              <IconPlay /> Start Session
             </button>
           ) : (
-            <button className="btn btn-danger" onClick={handleLeaveRoom}>
-              <IconStop /> Leave Room
+            <button className="btn btn-danger" onClick={handleEndSession}>
+              <IconStop /> End Session
             </button>
           )}
+
+          <VoiceRecorder
+            isRecording={isRecording}
+            currentChunk={currentChunk}
+            error={recorderError}
+          />
 
           {/* Client gate status */}
           {waitingForClient && (
@@ -133,11 +200,11 @@ const Dashboard: React.FC = () => {
               color: "var(--warning)",
             }}>
               <span className="dot dot-pending" style={{ width: 6, height: 6 }} />
-              Waiting for client to join
+              Waiting for client to join — recording will start automatically
             </span>
           )}
 
-          {clientConnected && (
+          {clientConnected && isRecording && (
             <span style={{
               display: "inline-flex", alignItems: "center", gap: "0.45rem",
               padding: "0.3rem 0.875rem",
@@ -148,13 +215,13 @@ const Dashboard: React.FC = () => {
               color: "var(--success)",
             }}>
               <span className="dot dot-active" style={{ width: 6, height: 6 }} />
-              Client connected — videochat live
+              Client connected — session active
             </span>
           )}
 
-          {roomId && (
-            <span className="session-chip" title={roomId} style={{ marginLeft: "auto" }}>
-              {roomId}
+          {sessionId && (
+            <span className="session-chip" title={sessionId} style={{ marginLeft: "auto" }}>
+              {sessionId}
             </span>
           )}
         </div>
@@ -175,21 +242,50 @@ const Dashboard: React.FC = () => {
               onJoin={handleJoinCall}
               patientName={selectedClient.name}
               relationship={selectedClient.relationship}
-              roomId={roomId}
-              isSessionActive={roomActive}
+              roomId={sessionId}
+              isSessionActive={isSessionActive}
             />
           </div>
 
           <div className="bento-side">
             <LiveSummaryBlock
-              summary={DUMMY_SUMMARY.summary}
-              chunkNumber={DUMMY_SUMMARY.chunkNumber}
-              timestamp={DUMMY_SUMMARY.timestamp}
-              isPolling={DUMMY_SUMMARY.isPolling}
+              summary={summary}
+              chunkNumber={chunkNumber}
+              timestamp={timestamp}
+              isPolling={isPolling}
             />
           </div>
         </div>
       </main>
+
+      {/* Snapshot capture — gated: only runs when client is connected */}
+      <SnapshotCapture
+        active={isSessionActive && clientConnected}
+        sessionId={sessionId}
+        videoElementId="video-remote"
+      />
+
+      {/* Final summary modal */}
+      {finalSummary && (
+        <div className="overlay" onClick={handleDismissFinal}>
+          <div className="modal" onClick={(e) => e.stopPropagation()}>
+            <div className="modal-title">Session Complete</div>
+            <div className="modal-sub">AI-generated clinical session note</div>
+            <div className="modal-body">{finalSummary.final_summary}</div>
+            {!finalSummary.summary_sent_to_dev2 && (
+              <p style={{ fontSize: "0.75rem", color: "var(--warning)", marginBottom: "1rem", display: "flex", alignItems: "center", gap: "0.5rem" }}>
+                <span className="dot dot-pending" />
+                Summary not yet forwarded to database (bridge pending).
+              </p>
+            )}
+            <div className="modal-footer">
+              <button className="btn btn-secondary" onClick={handleDismissFinal}>
+                <IconClose /> Close
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Error toast */}
       {errorToast && (
