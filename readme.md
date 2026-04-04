@@ -1,190 +1,128 @@
-# Technocrats Innovation Challenge - Heisenbugs
+# MemoryCare - Technocrats Innovation Challenge 
 
-AI-assisted dementia care platform for live calls, voice summarization, and caregiver support.
+> **An AI-assisted, real-time dementia care platform.** <br>
+> Features low-latency WebRTC live calls, rolling audio chunk transcription via **faster-whisper**, clinical session summarization via **Groq LLM**, and localized face-detection snapshots bridged externally. 
 
-## What this project does
+---
 
-- Runs a 2-person WebRTC video call (caregiver and guest/client).
-- Records call audio in chunks and sends it to an LLM pipeline.
-- Produces live rolling summaries and a final session summary.
-- Captures periodic snapshots from video and stores them in the ML service.
-- Includes a bridge service for forwarding face-detection events to SpacetimeDB reducers.
+## 🌟 Key Features
 
-## Architecture
+1. **WebRTC Video Calls**: Low-latency peer-to-peer video connection tailored for caregiver and client interactions.
+2. **Real-time Audio Transcription**: Live audio slicing (20s chunks) pushed to the STT pipeline powered by `faster-whisper` (CPU-optimized with Voice Activity Detection to prevent hallucinations). 
+3. **Rolling Clinical Notes**: Summarizes ongoing conversation chunks dynamically in the background via Groq's high-speed inference without blocking the application flow. Output enforces therapeutic terminology ("client" vs "patient").
+4. **Snapshot Event Pipeline**: Generates periodic face snapshots on the client side, caches them locally, and bridges them asynchronously via `bridge-snaps` script to a secure remote Machine Learning Endpoint for identity analysis.
+5. **Modern, Responsive UI**: Redesigned dashboard and navigation structure ensuring standard branding, high accessibility, and a premium caregiving experience.
+6. **SpacetimeDB Integrations**: Data bridge orchestrates identity registration logs seamlessly into SpacetimeDB reducers.
 
-Frontend (Vite + React, port 5173)
-- WebRTC UI and signaling client
-- Audio chunk upload to LLM backend via /api/* proxy
-- Summary polling via /api/summary
-- Snapshot upload to ML backend via /ml/snapshot
+---
 
-LLM Backend (FastAPI, port 8001)
-- Receives audio chunks
-- Whisper STT + Groq summarization
-- Redis-backed live summary state
-- Session end compilation and optional forwarding to Dev2 bridge URL
+## 🏗️ Architecture
 
-ML Service (FastAPI, port 8002)
-- Snapshot persistence endpoint
-- Health endpoint
-- Mock detect/register endpoints in current app implementation
+- **Frontend (Vite + React, port `5173`)**: WebRTC caller, signaling interaction, proxy routes pointing to the backend (`/api` -> `8001`), reactive summary dashboard, and snapshot generator filtering self-captures.
+- **LLM Backend (FastAPI, port `8001`)**: 
+  - `faster-whisper` transcription engine processing the `en` audio.
+  - Groq client handling `llama-3.1-8b-instant` prompts.
+  - Redis connection managing active session state strings and history indexing.
+- **ML / Analysis Service (FastAPI, port `8002`)**: Local server designed to sync image snapshots logic.
+- **Signaling Server (Node.js, port `4000`)**: Facilitates WebRTC ICE candidates and Socket.io room orchestration.
+- **Bridge Scraper (`bridge-snaps/bridge.py`)**: Asynchronous python pipeline watching local snapshot directory (`ml-service/client_snaps`) and converting `.jpg`/`.png` files to Base64 to hit remote endpoints (`/save_snap`) handling detection.
 
-Signaling Server (Node + socket.io, port 4000)
-- Room join/leave orchestration
-- Offer/answer/ICE exchange for WebRTC peers
+---
 
-Bridge Service (Python)
-- Polls ML wait-for-result endpoint
-- Calls SpacetimeDB reducers over HTTP
-- Tracks last seen person to avoid duplicate updates
+## 📂 Repository Structure
 
-## Repository structure
-
-- frontend/: React app, WebRTC UI, summary polling, audio and snapshot clients
-- LLM/: FastAPI LLM pipeline, Redis integration, Whisper/Groq services
-- ml-service/: FastAPI ML endpoints (currently snapshot + mock detect/register in active code)
-- bridge/: Python bridge + Node signaling server
-- memorycare-db/: SpacetimeDB package metadata/scripts
-- docs/: team setup notes and contracts
-
-## Tech stack
-
-- Frontend: React, TypeScript, Vite, socket.io-client
-- LLM service: FastAPI, Redis, whisper, Groq SDK
-- ML service: FastAPI, OpenCV/Numpy (plus DeepFace deps in requirements)
-- Signaling: Node.js, Express, socket.io
-- Bridge: Python, httpx
-- Data bridge target: SpacetimeDB HTTP reducers
-
-## Prerequisites
-
-- Node.js 18+
-- Python 3.10+
-- Redis 7+ (for LLM service)
-- FFmpeg available in PATH (required by whisper)
-- Optional: SpacetimeDB CLI for full bridge + DB flow
-
-## Environment configuration
-
-### LLM service
-
-Use LLM/.env.example as reference and create LLM/.env.
-
-Required:
-- GROQ_API_KEY
-
-Common optional values:
-- GROQ_MODEL (default: llama-3.1-8b-instant)
-- REDIS_URL (default: redis://localhost:6379/0)
-- LOG_LEVEL
-- CORS_ORIGINS
-- DEV2_SUMMARY_BRIDGE_URL (if forwarding final summary externally)
-
-### Bridge service
-
-bridge/bridge.py reads:
-- ML_API_URL (defaults to an ngrok URL in code)
-
-For local usage, set ML_API_URL to your local ML endpoint or bridge-compatible endpoint.
-
-## Install and run (recommended order)
-
-Open separate terminals from repository root.
-
-1. Start Redis (required for LLM)
-
-```powershell
-redis-server
+```
+├── frontend/             # React app, Vite config, WebRTC handlers, UI components
+├── LLM/                  # FastAPI layer for Speech-To-Text and LLM summarization
+│   ├── app/routes        # HTTP endpoints (/audio, /summary)
+│   ├── app/services      # STT (whisper_service.py) & LLM (llm_service.py)
+├── bridge/               # Node.js WebRTC Signaling Server
+├── ml-service/           # Local Machine Learning & Image persisting endpoints
+├── bridge-snaps/         # Python directory watcher & Base64 uploader script
+└── memorycare-db/        # SpacetimeDB database configuration and setup
 ```
 
-2. Start LLM backend (port 8001)
+---
 
-```powershell
-cd LLM
-pip install -r requirements.txt
-python run.py
+## 🛠️ Stack & Prerequisites
+
+- **Frontend**: React, TypeScript, Vite, Tailwind CSS, Framer Motion
+- **Backend Services**: Python 3.10+, FastAPI, `faster-whisper`, OpenCV, Groq Python SDK, Node.js (`socket.io`)
+- **Infrastructure Requirements**:
+  - `Node.js 18+`
+  - `Python 3.10+`
+  - `Redis 7+` (running on `localhost:6379`)
+  - `ffmpeg` installed and globally accessible via PATH (vital for `faster-whisper` chunk conversions).
+
+---
+
+## 🚀 Installation & Local Environment
+
+Provide environment variables for the LLM inference. In `LLM/`, copy `.env.example` to `.env`:
+
+```env
+GROQ_API_KEY=your_groq_api_key_here
+GROQ_MODEL=llama-3.1-8b-instant
+REDIS_URL=redis://localhost:6379/0
+# STT Concurrency logic
+MAX_CONCURRENT_STT=2
+WHISPER_MODEL=base
 ```
 
-3. Start ML service (port 8002)
+For the remote snapshot ML endpoints, you will find `ML_API_URL` defaults running inside the `bridge-snaps/bridge.py` script. Override this via environment variable if configuring a different Ngrok/Cloudflare tunnel for your model server.
 
-```powershell
-cd ml-service
-pip install -r requirements.txt
-python run.py
-```
+---
 
-4. Start signaling server (port 4000)
+## 🚦 Deployment (Local Execution Order)
 
-```powershell
-cd bridge
-npm install
-node signaling-server.js
-```
+Run these components entirely parallel via separate terminals at the repository root:
 
-5. Start frontend (port 5173)
+1. **Start the state database**  
+   Ensure your local redis instance is spinning:
+   ```bash
+   redis-server
+   ```
 
-```powershell
-cd frontend
-npm install
-npm run dev
-```
+2. **Run the Signaling Engine**  
+   ```bash
+   cd bridge
+   npm install && node signaling-server.js
+   ```
 
-6. Optional: start bridge service (SpacetimeDB integration path)
+3. **Start the LLM Transcription/Summarization Backend**  
+   ```bash
+   cd LLM
+   # Activate your local venv specific to this module!
+   .\venv\Scripts\activate
+   pip install -r requirements.txt
+   python run.py
+   ```
 
-```powershell
-cd bridge
-pip install -r requirements.txt
-python bridge.py
-```
+4. **Start the ML Target Service** *(if running internally)*  
+   ```bash
+   cd ml-service
+   pip install -r requirements.txt
+   python run.py
+   ```
 
-7. Optional: expose app externally with one tunnel
+5. **Start Snapshot Forwarder**  
+   ```bash
+   cd bridge-snaps
+   python bridge.py
+   ```
 
-```powershell
-cloudflared tunnel --url http://localhost:5173
-```
+6. **Launch Frontend Dev Server**  
+   ```bash
+   cd frontend
+   npm install && npm run dev
+   ```
 
-The frontend Vite proxy already routes:
-- /api -> http://localhost:8001
-- /ml -> http://localhost:8002
-- /socket.io -> http://localhost:4000
+*(Bonus Tool: To expose the interface securely online bypassing CGNATs, execute `cloudflared tunnel --url http://localhost:5173` which dynamically maps all Vite proxied APIs natively!)*
 
-## Service endpoints
+---
 
-Frontend
-- http://localhost:5173
+## 📝 Recent System Enhancements
 
-LLM backend
-- GET /health
-- POST /api/audio
-- GET /api/summary?session_id=...
-- POST /api/session/end
-- GET /api/past-summaries?client_id=...&limit=...
-
-ML service
-- GET /health
-- POST /snapshot (via frontend proxy as /ml/snapshot)
-- POST /detect
-- POST /register
-
-Signaling server
-- GET /health
-- socket.io signaling at /socket.io
-
-## Current behavior notes
-
-- Dashboard creates a unique session id per session and starts recording only after remote peer connection is established.
-- Voice chunks are sent sequentially through a queue to reduce tunnel congestion.
-- SnapshotCapture stores files in ml-service/client_snaps and ML service cleanup removes old files automatically.
-- LLM audio processing is asynchronous: upload returns quickly while STT + summary runs in background.
-
-## Known docs drift fixed by this README
-
-- Active ML run entrypoint is ml-service/run.py and default port is 8002.
-- Frontend relies on Vite proxy paths instead of hardcoded backend host URLs.
-- A single cloudflared tunnel to frontend is sufficient for API + signaling paths.
-
-## Additional docs
-
-- docs/setup.md
-- docs/api-contracts.md
-- LLM/API_CONTRACTS.md
+* **Transcriber Optimization**: Removed heavy `openai-whisper` in standard implementation favor of `faster-whisper`. Standardized internal FFmpeg logic directly down-sampling inputs into predictable formats preventing `NaN` tensor crashes. Added `vad_filter` logic resolving silent-room summary hallucination loops.
+* **Clinical Prompt Standards**: The LLM output generation rules have been strictly standardized to utilize `"client"` dynamically dropping previous hardcoded identifiers.
+* **Identity Bridge Isolation**: The snapshot integration avoids main-thread collision. Videos slice locally, save to disk, and the `bridge-snaps/bridge.py` autonomously discovers and forwards payloads reliably without dragging network performance inside the WebRTC app loop.
