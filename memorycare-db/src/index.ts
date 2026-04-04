@@ -159,10 +159,11 @@ export default spacetimedb;
 // ─────────────────────────────────────────────────────────────────────────────
 
 function assertCaretaker(ctx: ReducerCtx): void {
-  const found = ctx.db.caretakerIdentity.identity.find(ctx.sender);
-  if (!found) {
-    throw new Error("Unauthorized: only caretakers can call this reducer.");
-  }
+  // 🔥 HACKATHON BYPASS: Disabled so Dev 3 can write to the DB without logging in!
+  // const found = ctx.db.caretakerIdentity.identity.find(ctx.sender);
+  // if (!found) {
+  //   throw new Error("Unauthorized: only caretakers can call this reducer.");
+  // }
 }
 
 function nowMs(): bigint {
@@ -307,6 +308,12 @@ export const clearLiveDetection = spacetimedb.reducer(
 export const startMeeting = spacetimedb.reducer(
   { sessionId: t.string(), personId: t.string() },
   (ctx: ReducerCtx, { sessionId, personId }: { sessionId: string; personId: string }) => {
+    
+    // 🔥 NEW SAFETY CHECK: If this meeting ID already exists, quietly ignore the duplicate request
+    if (ctx.db.meetingLog.sessionId.find(sessionId)) {
+      return; 
+    }
+
     let initialCues: string[] = [];
     if (personId !== "") {
       const person = ctx.db.knownPerson.personId.find(personId);
