@@ -13,6 +13,6 @@
  python run.py
 
  cd bridge-snaps
- python snap.py
+ python bridge.py
 
  cloudflared tunnel -url http://localhost:5173
