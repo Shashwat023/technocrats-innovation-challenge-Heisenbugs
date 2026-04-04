@@ -1,11 +1,17 @@
 // frontend/src/components/Dashboard.tsx
 // Full caregiver dashboard.
 //
+// STDB INTEGRATION:
+//   - startMeeting reducer called when session begins
+//   - updateCue reducer called whenever a new live summary arrives
+//   - endMeeting + saveMeetingSummary reducers called on session end
+//   - All reducers are no-ops when STDB is not yet connected (graceful degradation)
+//
 // MIDDLEWARE: audio recording + snapshots only START once the client
 // (remote peer) has joined the call (callStatus === "connected").
-// Before that, recording is queued and waits.
 
 import React, { useState, useCallback, useRef, useEffect } from "react";
+import { Link } from "react-router-dom";
 import VoiceRecorder      from "./VoiceRecorder";
 import LiveSummaryBlock   from "./LiveSummaryBlock";
 import VideoFeed          from "./VideoFeed";
@@ -14,6 +20,7 @@ import { useLiveRedis }     from "../hooks/useLiveRedis";
 import { useVoiceRecorder } from "../hooks/useVoiceRecorder";
 import { useWebRTC }        from "../hooks/useWebRTC";
 import { endSession, SessionEndResponse } from "../lib/api";
+import { useSpacetime }     from "./SpacetimeProvider";
 
 const CLIENTS = [
   { id: "person_101", name: "Margaret Johnson", relationship: "Patient" },
@@ -36,6 +43,16 @@ const IconClose = () => (
   </svg>
 );
 
+/** Call a SpacetimeDB reducer safely — logs on failure, never throws. */
+function callReducer(fn: () => void, label: string) {
+  try {
+    fn();
+    console.log(`✅ STDB reducer: ${label}`);
+  } catch (err) {
+    console.error(`🔴 STDB reducer failed (${label}):`, err);
+  }
+}
+
 const Dashboard: React.FC = () => {
   const [selectedClientId, setSelectedClientId] = useState(CLIENTS[0].id);
   const [sessionId,        setSessionId]        = useState<string | null>(null);
@@ -44,12 +61,13 @@ const Dashboard: React.FC = () => {
   const [errorToast,       setErrorToast]       = useState<string | null>(null);
 
   // ── Hooks ──────────────────────────────────────────────────────────────────
+  const { conn: stdbConn, isConnected: stdbConnected } = useSpacetime();
+
   const { startRecording, stopRecording, isRecording, currentChunk, error: recorderError } =
     useVoiceRecorder(sessionId);
 
   const { summary, chunkNumber, timestamp, isPolling } =
     useLiveRedis(sessionId, isSessionActive);
-
 
   const {
     callStatus, localStream, remoteStream,
@@ -58,31 +76,44 @@ const Dashboard: React.FC = () => {
     isMicOn, isCamOn, error: webrtcError,
   } = useWebRTC();
 
-  // ── MIDDLEWARE: client-joined gate ─────────────────────────────────────────
-  const clientConnected = callStatus === "connected";
-  
-  // Debug logging
-  console.log(`[Dashboard] sessionId=${sessionId}, isSessionActive=${isSessionActive}, clientConnected=${clientConnected}`);
-  console.log(`[Dashboard] Live summary: chunk=${chunkNumber}, summary=${summary?.slice(0, 30)}..., isPolling=${isPolling}`);
-
-  // Track whether we've started recording in this session
+  // ── Client gate ────────────────────────────────────────────────────────────
+  const clientConnected     = callStatus === "connected";
   const recordingStartedRef = useRef(false);
+  const lastCueChunkRef     = useRef<number | null>(null);
 
-  // When the client connects → start recording (if session is active and not already recording)
+  // When the client connects → start recording
   useEffect(() => {
     if (isSessionActive && sessionId && clientConnected && !isRecording && !recordingStartedRef.current) {
       recordingStartedRef.current = true;
-      console.log("[Dashboard] Client connected — starting audio recording + snapshots");
       startRecording();
     }
   }, [isSessionActive, sessionId, clientConnected, isRecording, startRecording]);
 
-  // Reset recording gate when session ends or call drops
+  // Reset recording gate on session end or call drop
   useEffect(() => {
     if (!isSessionActive || callStatus === "idle" || callStatus === "disconnected") {
       recordingStartedRef.current = false;
     }
   }, [isSessionActive, callStatus]);
+
+  // ── STDB: push each new chunk summary as a cue ─────────────────────────────
+  // Fires whenever useLiveRedis delivers a NEW chunk number.
+  useEffect(() => {
+    if (!stdbConn || !stdbConnected) return;
+    if (!sessionId || !summary || chunkNumber === null) return;
+    if (chunkNumber === lastCueChunkRef.current) return; // already sent this chunk
+
+    lastCueChunkRef.current = chunkNumber;
+
+    callReducer(
+      () => stdbConn.reducers.updateCue({
+        personId:  selectedClientId,
+        sessionId,
+        newCue:    summary,
+      }),
+      `updateCue chunk#${chunkNumber}`
+    );
+  }, [summary, chunkNumber, sessionId, selectedClientId, stdbConn, stdbConnected]);
 
   // ── WebRTC error toast ─────────────────────────────────────────────────────
   useEffect(() => {
@@ -96,14 +127,23 @@ const Dashboard: React.FC = () => {
 
   // ── Start session ──────────────────────────────────────────────────────────
   const handleStartSession = useCallback(async () => {
-    // ✓ FIX#9: Generate truly unique session ID using timestamp + random (prevents collisions)
     const uniqueSuffix = `${Date.now()}_${Math.random().toString(36).substring(2, 9)}`;
     const id = `${selectedClientId}_session_${uniqueSuffix}`;
+
     setSessionId(id);
     setIsSessionActive(true);
     setFinalSummary(null);
-    recordingStartedRef.current = false;
-  }, [selectedClientId]);
+    recordingStartedRef.current  = false;
+    lastCueChunkRef.current      = null;
+
+    // STDB: log meeting start
+    if (stdbConn && stdbConnected) {
+      callReducer(
+        () => stdbConn.reducers.startMeeting({ sessionId: id, personId: selectedClientId }),
+        "startMeeting"
+      );
+    }
+  }, [selectedClientId, stdbConn, stdbConnected]);
 
   // ── Join video call ────────────────────────────────────────────────────────
   const handleJoinCall = useCallback(async () => {
@@ -117,43 +157,89 @@ const Dashboard: React.FC = () => {
     leaveCall();
     setIsSessionActive(false);
     recordingStartedRef.current = false;
-    if (sessionId) {
-      const result = await endSession(sessionId);
-      if (result) setFinalSummary(result);
+
+    if (!sessionId) return;
+
+    // STDB: close the meeting log
+    if (stdbConn && stdbConnected) {
+      callReducer(
+        () => stdbConn.reducers.endMeeting({ sessionId }),
+        "endMeeting"
+      );
     }
-  }, [sessionId, stopRecording, leaveCall]);
+
+    // LLM: compile final summary
+    const result = await endSession(sessionId);
+    if (result) {
+      setFinalSummary(result);
+
+      // STDB: persist the compiled summary permanently
+      if (stdbConn && stdbConnected && result.final_summary) {
+        const meetingDate = new Date().toISOString().split("T")[0]; // YYYY-MM-DD
+        callReducer(
+          () => stdbConn.reducers.saveMeetingSummary({
+            sessionId,
+            personId:    selectedClientId,
+            summary:     result.final_summary,
+            meetingDate,
+          }),
+          "saveMeetingSummary"
+        );
+      }
+    }
+  }, [sessionId, selectedClientId, stopRecording, leaveCall, stdbConn, stdbConnected]);
 
   const handleDismissFinal = useCallback(() => {
     setFinalSummary(null);
     setSessionId(null);
   }, []);
 
-  // Waiting for client label
   const waitingForClient = isSessionActive && callStatus !== "connected" && callStatus !== "idle";
 
   // ── Render ──────────────────────────────────────────────────────────────────
   return (
     <div className="app">
-
-      {/* ── Navbar ─────────────────────────────────────────────────────────── */}
       <nav className="navbar">
-        <div className="navbar-brand">
-          <div className="navbar-logo"><IconBrain /></div>
+        <Link to="/" className="nav-brand">
+          <div className="nav-logo"><IconBrain /></div>
           <div>
-            <div className="navbar-title">MemoryCare</div>
-            <div className="navbar-subtitle">AI-Assisted Dementia Care</div>
+            <div className="nav-wordmark">MemoryCare</div>
+            <div className="nav-subtitle">AI-Assisted Dementia Care</div>
           </div>
+        </Link>
+
+        <div style={{ display: "flex", alignItems: "center", gap: "0.25rem" }}>
+          {["Home:/", "Dashboard:/dashboard", "Sessions:/sessions", "Insights:/insights"].map((item) => {
+            const [label, path] = item.split(":");
+            return (
+              <Link key={path} to={path} style={{
+                padding: "0.5rem 0.75rem", fontSize: "0.875rem", fontWeight: 500,
+                color: "var(--text-3)", textDecoration: "none", borderRadius: "var(--radius-sm)",
+              }}>{label}</Link>
+            );
+          })}
         </div>
 
         <div className="navbar-right">
+          {/* STDB connection indicator */}
+          <span style={{
+            display: "inline-flex", alignItems: "center", gap: "0.375rem",
+            fontSize: "0.6875rem", fontWeight: 600,
+            color: stdbConnected ? "var(--success)" : "var(--text-4)",
+          }}>
+            <span className={`dot ${stdbConnected ? "dot-active" : "dot-idle"}`} style={{ width: 6, height: 6 }} />
+            {stdbConnected ? "DB Live" : "DB Connecting"}
+          </span>
+
           <span className={`call-badge ${callStatus}`}>
             {callStatus === "connected"    && <><span className="dot dot-active"  />Live</>}
-            {callStatus === "waiting"      && <><span className="dot dot-pending" />Waiting for client</>}
+            {callStatus === "waiting"      && <><span className="dot dot-pending" />Waiting</>}
             {callStatus === "connecting"   && <><span className="dot dot-pending" />Connecting</>}
             {callStatus === "idle"         && "No call"}
             {callStatus === "disconnected" && <><span className="dot dot-idle"    />Disconnected</>}
             {callStatus === "error"        && "Error"}
           </span>
+
           <select
             className="select"
             value={selectedClientId}
@@ -167,10 +253,7 @@ const Dashboard: React.FC = () => {
         </div>
       </nav>
 
-      {/* ── Main ───────────────────────────────────────────────────────────── */}
       <main className="main-content">
-
-        {/* Session controls bar */}
         <div className="session-bar" style={{ marginBottom: "1.25rem" }}>
           {!isSessionActive ? (
             <button className="btn btn-primary" onClick={handleStartSession}>
@@ -182,37 +265,26 @@ const Dashboard: React.FC = () => {
             </button>
           )}
 
-          <VoiceRecorder
-            isRecording={isRecording}
-            currentChunk={currentChunk}
-            error={recorderError}
-          />
+          <VoiceRecorder isRecording={isRecording} currentChunk={currentChunk} error={recorderError} />
 
-          {/* Client gate status */}
           {waitingForClient && (
             <span style={{
               display: "inline-flex", alignItems: "center", gap: "0.45rem",
-              padding: "0.3rem 0.875rem",
-              borderRadius: "var(--radius-full)",
-              background: "var(--warning-dim)",
-              border: "1px solid rgba(245,158,11,0.25)",
-              fontSize: "0.75rem", fontWeight: 600,
-              color: "var(--warning)",
+              padding: "0.3rem 0.875rem", borderRadius: "var(--radius-full)",
+              background: "var(--warning-dim)", border: "1px solid rgba(245,158,11,0.25)",
+              fontSize: "0.75rem", fontWeight: 600, color: "var(--warning)",
             }}>
               <span className="dot dot-pending" style={{ width: 6, height: 6 }} />
-              Waiting for client to join — recording will start automatically
+              Waiting for client — recording starts automatically on join
             </span>
           )}
 
           {clientConnected && isRecording && (
             <span style={{
               display: "inline-flex", alignItems: "center", gap: "0.45rem",
-              padding: "0.3rem 0.875rem",
-              borderRadius: "var(--radius-full)",
-              background: "var(--success-dim)",
-              border: "1px solid rgba(34,197,94,0.25)",
-              fontSize: "0.75rem", fontWeight: 600,
-              color: "var(--success)",
+              padding: "0.3rem 0.875rem", borderRadius: "var(--radius-full)",
+              background: "var(--success-dim)", border: "1px solid rgba(34,197,94,0.25)",
+              fontSize: "0.75rem", fontWeight: 600, color: "var(--success)",
             }}>
               <span className="dot dot-active" style={{ width: 6, height: 6 }} />
               Client connected — session active
@@ -226,7 +298,6 @@ const Dashboard: React.FC = () => {
           )}
         </div>
 
-        {/* Bento grid */}
         <div className="bento-grid">
           <div className="bento-main">
             <VideoFeed
@@ -258,26 +329,18 @@ const Dashboard: React.FC = () => {
         </div>
       </main>
 
-      {/* Snapshot capture — gated: only runs when client is connected */}
       <SnapshotCapture
         active={isSessionActive && clientConnected}
         sessionId={sessionId}
         videoElementId="video-remote"
       />
 
-      {/* Final summary modal */}
       {finalSummary && (
         <div className="overlay" onClick={handleDismissFinal}>
           <div className="modal" onClick={(e) => e.stopPropagation()}>
             <div className="modal-title">Session Complete</div>
-            <div className="modal-sub">AI-generated clinical session note</div>
+            <div className="modal-sub">AI-generated clinical session note · saved to SpacetimeDB</div>
             <div className="modal-body">{finalSummary.final_summary}</div>
-            {!finalSummary.summary_sent_to_dev2 && (
-              <p style={{ fontSize: "0.75rem", color: "var(--warning)", marginBottom: "1rem", display: "flex", alignItems: "center", gap: "0.5rem" }}>
-                <span className="dot dot-pending" />
-                Summary not yet forwarded to database (bridge pending).
-              </p>
-            )}
             <div className="modal-footer">
               <button className="btn btn-secondary" onClick={handleDismissFinal}>
                 <IconClose /> Close
@@ -287,7 +350,6 @@ const Dashboard: React.FC = () => {
         </div>
       )}
 
-      {/* Error toast */}
       {errorToast && (
         <div className="toast" onClick={() => setErrorToast(null)}>
           <span className="dot dot-live" />

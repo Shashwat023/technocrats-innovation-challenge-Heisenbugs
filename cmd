@@ -12,4 +12,4 @@
  .\venv\Scripts\activate
  python run.py
 
- 
+ cloudflared tunnel -url http://localhost:5173

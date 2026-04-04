@@ -1,7 +1,7 @@
 /* frontend/src/index.css
-   MemoryCare — UI/UX Pro Max Dark Theme
-   Design system: Glassmorphism + Bento Grid + Clinical Dark
-   Palette: Deep navy base, indigo accent, medical-grade readability
+   MemoryCare — Warm Earth-Tone Theme
+   Design: Clean, calm medical-tech — Apple Health + Raycast feel
+   Palette: #fefae0 (cream), #dda15e (amber), #bc6c25 (burnt sienna)
    Font: Inter (headings) + system-ui (body)
 */
 
@@ -9,41 +9,41 @@
 
 /* ── Design Tokens ──────────────────────────────────────────────────────────── */
 :root {
-  /* Base surfaces */
-  --bg-base:       #060912;
-  --bg-primary:    #0b0f1e;
-  --bg-secondary:  #101627;
-  --bg-tertiary:   #141b2d;
+  /* Base surfaces — warm cream */
+  --bg-base:       #fefae0;
+  --bg-primary:    #fdf6d3;
+  --bg-secondary:  #faf0c4;
+  --bg-tertiary:   #f5e8b0;
 
-  /* Glass layers */
-  --glass-1:       rgba(255,255,255,0.03);
-  --glass-2:       rgba(255,255,255,0.06);
-  --glass-3:       rgba(255,255,255,0.09);
-  --glass-border:  rgba(255,255,255,0.08);
-  --glass-border-hover: rgba(255,255,255,0.16);
+  /* Glass layers — warm-tinted transparency */
+  --glass-1:       rgba(188,108,37,0.04);
+  --glass-2:       rgba(188,108,37,0.07);
+  --glass-3:       rgba(188,108,37,0.11);
+  --glass-border:  rgba(188,108,37,0.12);
+  --glass-border-hover: rgba(188,108,37,0.25);
 
-  /* Accent — indigo/violet */
-  --accent:        #6366f1;
-  --accent-light:  #818cf8;
-  --accent-dim:    rgba(99,102,241,0.15);
-  --accent-glow:   rgba(99,102,241,0.35);
-  --accent-pulse:  rgba(99,102,241,0.5);
+  /* Accent — warm amber / burnt sienna */
+  --accent:        #bc6c25;
+  --accent-light:  #dda15e;
+  --accent-dim:    rgba(188,108,37,0.10);
+  --accent-glow:   rgba(188,108,37,0.25);
+  --accent-pulse:  rgba(188,108,37,0.40);
 
   /* Semantic colors */
-  --success:       #22c55e;
-  --success-dim:   rgba(34,197,94,0.12);
-  --danger:        #f43f5e;
-  --danger-dim:    rgba(244,63,94,0.12);
-  --warning:       #f59e0b;
-  --warning-dim:   rgba(245,158,11,0.12);
-  --info:          #38bdf8;
-  --info-dim:      rgba(56,189,248,0.12);
+  --success:       #5a8a3c;
+  --success-dim:   rgba(90,138,60,0.10);
+  --danger:        #c44536;
+  --danger-dim:    rgba(196,69,54,0.10);
+  --warning:       #d68c1a;
+  --warning-dim:   rgba(214,140,26,0.10);
+  --info:          #4a7c9b;
+  --info-dim:      rgba(74,124,155,0.10);
 
-  /* Text hierarchy */
-  --text-1:        #f8fafc;
-  --text-2:        #cbd5e1;
-  --text-3:        #94a3b8;
-  --text-4:        #64748b;
+  /* Text hierarchy — dark warm tones */
+  --text-1:        #2d1b0e;
+  --text-2:        #5c3d1e;
+  --text-3:        #8a6e4e;
+  --text-4:        #a89070;
 
   /* Geometry */
   --radius-xs:     6px;
@@ -53,10 +53,10 @@
   --radius-xl:     28px;
   --radius-full:   9999px;
 
-  /* Shadows */
-  --shadow-sm:     0 1px 3px rgba(0,0,0,0.4);
-  --shadow-md:     0 4px 16px rgba(0,0,0,0.5);
-  --shadow-lg:     0 8px 32px rgba(0,0,0,0.6);
+  /* Shadows — warm tinted */
+  --shadow-sm:     0 1px 3px rgba(45,27,14,0.08);
+  --shadow-md:     0 4px 16px rgba(45,27,14,0.10);
+  --shadow-lg:     0 8px 32px rgba(45,27,14,0.12);
   --shadow-glow:   0 0 40px var(--accent-glow);
 
   /* Motion */
@@ -83,26 +83,24 @@ body {
   color: var(--text-1);
   line-height: 1.6;
   min-height: 100dvh;
-  max-height: 100dvh;
-  max-height: 100vh;
   overflow-x: hidden;
-  overflow-y: hidden;
+  /* SCROLL FIX: allow vertical scrolling */
+  overflow-y: auto;
 }
 
-/* Subtle grid texture on the base background */
+/* Subtle dot-grid texture */
 body::before {
   content: "";
   position: fixed;
   inset: 0;
   background-image:
-    linear-gradient(rgba(99,102,241,0.03) 1px, transparent 1px),
-    linear-gradient(90deg, rgba(99,102,241,0.03) 1px, transparent 1px);
-  background-size: 48px 48px;
+    radial-gradient(circle, rgba(188,108,37,0.04) 1px, transparent 1px);
+  background-size: 32px 32px;
   pointer-events: none;
   z-index: 0;
 }
 
-#root { position: relative; z-index: 1; min-height: 100dvh; max-height: 100dvh; max-height: 100vh; overflow: hidden; }
+#root { position: relative; z-index: 1; min-height: 100dvh; }
 
 /* ── Scrollbar ──────────────────────────────────────────────────────────────── */
 ::-webkit-scrollbar { width: 6px; height: 6px; }
@@ -110,17 +108,14 @@ body::before {
 ::-webkit-scrollbar-thumb { background: var(--glass-border); border-radius: var(--radius-full); }
 ::-webkit-scrollbar-thumb:hover { background: var(--text-4); }
 
-/* ── App Layout ─────────────────────────────────────────────────────────────── */
+/* ── App Layout — used by Dashboard/DemoPage ───────────────────────────────── */
 .app {
   display: flex;
   flex-direction: column;
   min-height: 100dvh;
-  max-height: 100dvh;
-  max-height: 100vh;
-  overflow: hidden;
 }
 
-/* ── Header / Navbar ────────────────────────────────────────────────────────── */
+/* ── Header / Navbar — Dashboard navbar ────────────────────────────────────── */
 .navbar {
   position: sticky;
   top: 0;
@@ -130,21 +125,22 @@ body::before {
   align-items: center;
   justify-content: space-between;
   padding: 0 2rem;
-  background: rgba(6,9,18,0.85);
+  background: rgba(254,250,224,0.85);
   backdrop-filter: blur(24px) saturate(180%);
   border-bottom: 1px solid var(--glass-border);
 }
 
-.navbar-brand {
+.nav-brand {
   display: flex;
   align-items: center;
   gap: 0.625rem;
+  text-decoration: none;
 }
 
-.navbar-logo {
+.nav-logo {
   width: 32px;
   height: 32px;
-  background: linear-gradient(135deg, var(--accent), #a78bfa);
+  background: linear-gradient(135deg, var(--accent), var(--accent-light));
   border-radius: var(--radius-sm);
   display: flex;
   align-items: center;
@@ -152,22 +148,26 @@ body::before {
   font-size: 16px;
   box-shadow: 0 0 16px var(--accent-glow);
   flex-shrink: 0;
+  color: #fff;
 }
 
-.navbar-title {
+.nav-wordmark {
   font-size: 1.125rem;
   font-weight: 700;
   letter-spacing: -0.02em;
-  background: linear-gradient(135deg, #f1f5f9, #a78bfa);
+  background: linear-gradient(135deg, var(--text-1), var(--accent));
   -webkit-background-clip: text;
   -webkit-text-fill-color: transparent;
   background-clip: text;
+  line-height: 1.2;
 }
 
-.navbar-subtitle {
-  font-size: 0.6875rem;
+.nav-subtitle {
+  font-size: 0.625rem;
   color: var(--text-4);
   font-weight: 400;
+  line-height: 1;
+  margin-top: 1px;
 }
 
 .navbar-right {
@@ -181,11 +181,8 @@ body::before {
   flex: 1;
   padding: 1.5rem 2rem 2rem;
   max-width: 1400px;
-  max-height: calc(100dvh - var(--header-h));
-  max-height: calc(100vh - var(--header-h));
   margin: 0 auto;
   width: 100%;
-  overflow-y: auto;
   overflow-x: hidden;
 }
 
@@ -208,7 +205,7 @@ body::before {
 
 /* ── Glass Card ─────────────────────────────────────────────────────────────── */
 .card {
-  background: var(--glass-1);
+  background: rgba(255,255,255,0.55);
   backdrop-filter: blur(20px) saturate(150%);
   border: 1px solid var(--glass-border);
   border-radius: var(--radius-lg);
@@ -217,7 +214,7 @@ body::before {
               box-shadow var(--duration-base) var(--ease);
 }
 
-.card:hover { border-color: var(--glass-border-hover); }
+.card:hover { border-color: var(--glass-border-hover); box-shadow: var(--shadow-md); }
 
 .card-header {
   display: flex;
@@ -242,7 +239,7 @@ body::before {
   position: relative;
   border-radius: var(--radius-lg);
   overflow: hidden;
-  background: #000;
+  background: #1a1308;
   aspect-ratio: 16/9;
   border: 1px solid var(--glass-border);
 }
@@ -264,10 +261,10 @@ body::before {
   aspect-ratio: 16/9;
   border-radius: var(--radius-md);
   overflow: hidden;
-  border: 2px solid rgba(255,255,255,0.15);
+  border: 2px solid rgba(221,161,94,0.35);
   box-shadow: var(--shadow-lg);
   z-index: 10;
-  background: #111;
+  background: #1a1308;
   transition: transform var(--duration-base) var(--ease);
 }
 
@@ -277,10 +274,10 @@ body::before {
   width: 100%;
   height: 100%;
   object-fit: cover;
-  transform: scaleX(-1); /* mirror local feed */
+  transform: scaleX(-1);
 }
 
-/* Call status overlay — shown when not connected */
+/* Call status overlay */
 .video-status-overlay {
   position: absolute;
   inset: 0;
@@ -289,16 +286,17 @@ body::before {
   align-items: center;
   justify-content: center;
   gap: 1rem;
-  background: radial-gradient(ellipse at 50% 60%, rgba(99,102,241,0.08) 0%, transparent 70%),
-              var(--bg-base);
+  background: radial-gradient(ellipse at 50% 60%, rgba(188,108,37,0.08) 0%, transparent 70%),
+              #1a1308;
+  color: #fefae0;
 }
 
 .video-status-icon {
   width: 72px;
   height: 72px;
   border-radius: 50%;
-  background: var(--glass-2);
-  border: 1px solid var(--glass-border);
+  background: rgba(255,255,255,0.08);
+  border: 1px solid rgba(255,255,255,0.12);
   display: flex;
   align-items: center;
   justify-content: center;
@@ -308,12 +306,12 @@ body::before {
 .video-status-title {
   font-size: 1.125rem;
   font-weight: 600;
-  color: var(--text-1);
+  color: #fefae0;
 }
 
 .video-status-sub {
   font-size: 0.8125rem;
-  color: var(--text-4);
+  color: rgba(254,250,224,0.55);
   text-align: center;
   max-width: 280px;
   line-height: 1.5;
@@ -330,7 +328,7 @@ body::before {
   width: 8px;
   height: 8px;
   border-radius: 50%;
-  background: var(--accent);
+  background: var(--accent-light);
   animation: waitBounce 1.4s ease-in-out infinite;
 }
 .waiting-dot:nth-child(2) { animation-delay: 0.2s; }
@@ -341,14 +339,14 @@ body::before {
   40% { opacity: 1; transform: scale(1.1); }
 }
 
-/* Call info bar — patient name + active indicator */
+/* Call info bar */
 .video-info-bar {
   position: absolute;
   bottom: 0;
   left: 0;
   right: 0;
   padding: 2.5rem 1.25rem 1.25rem;
-  background: linear-gradient(transparent, rgba(0,0,0,0.85));
+  background: linear-gradient(transparent, rgba(26,19,8,0.85));
   display: flex;
   align-items: flex-end;
   justify-content: space-between;
@@ -357,12 +355,12 @@ body::before {
 .video-patient-name {
   font-size: 1rem;
   font-weight: 600;
-  color: #fff;
+  color: #fefae0;
 }
 
 .video-patient-rel {
   font-size: 0.75rem;
-  color: rgba(255,255,255,0.55);
+  color: rgba(254,250,224,0.55);
   margin-top: 2px;
 }
 
@@ -373,7 +371,7 @@ body::before {
   justify-content: center;
   gap: 0.75rem;
   padding: 1rem 1.5rem;
-  background: var(--glass-1);
+  background: rgba(255,255,255,0.45);
   border: 1px solid var(--glass-border);
   border-radius: var(--radius-lg);
 }
@@ -386,7 +384,7 @@ body::before {
   height: 48px;
   border-radius: 50%;
   border: 1px solid var(--glass-border);
-  background: var(--glass-2);
+  background: rgba(255,255,255,0.6);
   color: var(--text-1);
   cursor: pointer;
   transition: all var(--duration-base) var(--spring);
@@ -394,7 +392,7 @@ body::before {
 }
 
 .control-btn:hover {
-  background: var(--glass-3);
+  background: rgba(255,255,255,0.85);
   border-color: var(--glass-border-hover);
   transform: scale(1.08);
 }
@@ -402,13 +400,13 @@ body::before {
 .control-btn.active {
   background: var(--accent-dim);
   border-color: var(--accent);
-  color: var(--accent-light);
+  color: var(--accent);
   box-shadow: 0 0 16px var(--accent-glow);
 }
 
 .control-btn.danger {
   background: var(--danger-dim);
-  border-color: rgba(244,63,94,0.3);
+  border-color: rgba(196,69,54,0.3);
   color: var(--danger);
 }
 
@@ -450,7 +448,7 @@ body::before {
   align-items: center;
   gap: 0.75rem;
   padding: 0.75rem 1rem;
-  background: var(--glass-2);
+  background: rgba(255,255,255,0.45);
   border: 1px solid var(--glass-border);
   border-radius: var(--radius-md);
   font-size: 0.8125rem;
@@ -463,7 +461,7 @@ body::before {
   padding: 0.375rem 0.75rem;
   border-radius: var(--radius-sm);
   border: 1px solid var(--glass-border);
-  background: var(--glass-3);
+  background: rgba(255,255,255,0.6);
   color: var(--text-2);
   font-size: 0.75rem;
   font-weight: 500;
@@ -475,7 +473,7 @@ body::before {
 .room-link-copy:hover {
   background: var(--accent-dim);
   border-color: var(--accent);
-  color: var(--accent-light);
+  color: var(--accent);
 }
 
 .room-link-copy.copied {
@@ -490,7 +488,7 @@ body::before {
   align-items: center;
   gap: 1rem;
   padding: 0.875rem 1.25rem;
-  background: var(--glass-1);
+  background: rgba(255,255,255,0.45);
   border: 1px solid var(--glass-border);
   border-radius: var(--radius-md);
   flex-wrap: wrap;
@@ -518,28 +516,28 @@ body::before {
 .btn-primary {
   background: var(--accent);
   color: #fff;
-  box-shadow: 0 0 20px var(--accent-glow);
+  box-shadow: 0 4px 16px var(--accent-glow);
 }
 .btn-primary:hover {
-  background: var(--accent-light);
+  background: #a45d20;
   transform: translateY(-1px);
-  box-shadow: 0 0 32px var(--accent-glow);
+  box-shadow: 0 6px 24px var(--accent-glow);
 }
 
 .btn-secondary {
-  background: var(--glass-2);
+  background: rgba(255,255,255,0.6);
   border-color: var(--glass-border);
   color: var(--text-2);
 }
 .btn-secondary:hover {
-  background: var(--glass-3);
+  background: rgba(255,255,255,0.85);
   border-color: var(--glass-border-hover);
   color: var(--text-1);
 }
 
 .btn-danger {
   background: var(--danger-dim);
-  border-color: rgba(244,63,94,0.3);
+  border-color: rgba(196,69,54,0.3);
   color: var(--danger);
 }
 .btn-danger:hover {
@@ -554,7 +552,7 @@ body::before {
 /* ── Select / Input ─────────────────────────────────────────────────────────── */
 .select, .input {
   padding: 0.5rem 0.875rem;
-  background: var(--glass-2);
+  background: rgba(255,255,255,0.6);
   border: 1px solid var(--glass-border);
   border-radius: var(--radius-sm);
   color: var(--text-1);
@@ -597,7 +595,7 @@ body::before {
   gap: 0.5rem;
   padding: 0.375rem 0.875rem;
   background: var(--danger-dim);
-  border: 1px solid rgba(244,63,94,0.25);
+  border: 1px solid rgba(196,69,54,0.25);
   border-radius: var(--radius-full);
   font-size: 0.8125rem;
   font-weight: 600;
@@ -607,7 +605,7 @@ body::before {
 
 .rec-pill.error {
   background: var(--warning-dim);
-  border-color: rgba(245,158,11,0.25);
+  border-color: rgba(214,140,26,0.25);
   color: var(--warning);
 }
 
@@ -658,18 +656,18 @@ body::before {
   gap: 0.375rem;
   padding: 0.2rem 0.625rem;
   background: var(--accent-dim);
-  border: 1px solid rgba(99,102,241,0.2);
+  border: 1px solid rgba(188,108,37,0.2);
   border-radius: var(--radius-full);
   font-size: 0.6875rem;
   font-weight: 700;
-  color: var(--accent-light);
+  color: var(--accent);
   letter-spacing: 0.04em;
 }
 
 /* ── Past Summaries ─────────────────────────────────────────────────────────── */
 .past-item {
   padding: 0.875rem 1rem;
-  background: var(--glass-1);
+  background: rgba(255,255,255,0.45);
   border: 1px solid var(--glass-border);
   border-radius: var(--radius-md);
   transition: border-color var(--duration-fast) var(--ease),
@@ -677,12 +675,12 @@ body::before {
   cursor: default;
 }
 .past-item + .past-item { margin-top: 0.625rem; }
-.past-item:hover { background: var(--glass-2); border-color: var(--glass-border-hover); }
+.past-item:hover { background: rgba(255,255,255,0.7); border-color: var(--glass-border-hover); }
 
 .past-item-date {
   font-size: 0.6875rem;
   font-weight: 600;
-  color: var(--accent-light);
+  color: var(--accent);
   text-transform: uppercase;
   letter-spacing: 0.06em;
   margin-bottom: 0.375rem;
@@ -720,7 +718,7 @@ body::before {
   text-transform: uppercase;
 }
 
-.call-badge.idle        { background: var(--glass-2); color: var(--text-4); }
+.call-badge.idle        { background: rgba(255,255,255,0.45); color: var(--text-4); }
 .call-badge.waiting     { background: var(--warning-dim); color: var(--warning); }
 .call-badge.connecting  { background: var(--info-dim); color: var(--info); }
 .call-badge.connected   { background: var(--success-dim); color: var(--success); }
@@ -733,7 +731,7 @@ body::before {
   align-items: center;
   gap: 0.375rem;
   padding: 0.3rem 0.75rem;
-  background: var(--glass-2);
+  background: rgba(255,255,255,0.45);
   border: 1px solid var(--glass-border);
   border-radius: var(--radius-full);
   font-size: 0.75rem;
@@ -749,7 +747,7 @@ body::before {
 .overlay {
   position: fixed;
   inset: 0;
-  background: rgba(0,0,0,0.75);
+  background: rgba(45,27,14,0.55);
   backdrop-filter: blur(12px) saturate(80%);
   display: flex;
   align-items: center;
@@ -760,7 +758,7 @@ body::before {
 }
 
 .modal {
-  background: var(--bg-secondary);
+  background: var(--bg-primary);
   border: 1px solid var(--glass-border);
   border-radius: var(--radius-xl);
   padding: 2rem;
@@ -777,7 +775,7 @@ body::before {
   font-weight: 700;
   letter-spacing: -0.02em;
   margin-bottom: 0.375rem;
-  background: linear-gradient(135deg, var(--text-1), var(--accent-light));
+  background: linear-gradient(135deg, var(--text-1), var(--accent));
   -webkit-background-clip: text;
   -webkit-text-fill-color: transparent;
   background-clip: text;
@@ -816,8 +814,8 @@ body::before {
   align-items: center;
   gap: 0.75rem;
   padding: 0.75rem 1.25rem;
-  background: var(--bg-tertiary);
-  border: 1px solid rgba(244,63,94,0.3);
+  background: var(--bg-primary);
+  border: 1px solid rgba(196,69,54,0.3);
   border-radius: var(--radius-md);
   font-size: 0.875rem;
   color: var(--danger);
@@ -835,7 +833,7 @@ body::before {
 
 /* ── Skeleton loader ────────────────────────────────────────────────────────── */
 .skeleton {
-  background: linear-gradient(90deg, var(--glass-1) 25%, var(--glass-3) 50%, var(--glass-1) 75%);
+  background: linear-gradient(90deg, rgba(188,108,37,0.05) 25%, rgba(188,108,37,0.12) 50%, rgba(188,108,37,0.05) 75%);
   background-size: 200% 100%;
   animation: shimmer 1.5s ease-in-out infinite;
   border-radius: var(--radius-sm);

@@ -41,7 +41,7 @@ async def _process_audio_chunk(
             # Store failure status so frontend knows this chunk failed
             failed_summary = ChunkSummary(
                 chunk_number=chunk_number,
-                text="[Audio processing failed - please re-record this segment]",
+                text="Audio processing...",
                 timestamp=int(time.time()),
                 status="failed",
             )
