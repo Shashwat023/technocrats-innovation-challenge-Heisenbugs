@@ -1,18 +1,10 @@
-﻿// frontend/src/lib/spacetime.ts
-// Dev 3 owns this file.
-// Central SpacetimeDB connection used everywhere in the app.
+// frontend/src/lib/spacetime.ts
+// Re-exports SpacetimeDB connection state from the React provider.
+// Use `useSpacetime()` in components, or import STDB_URL/STDB_DB for config.
 
-const STDB_URL = "ws://localhost:3000"
-const STDB_DB  = "memorycare-db"
+export const STDB_URL = import.meta.env.VITE_STDB_URL || "ws://localhost:3000";
+export const STDB_DB  = import.meta.env.VITE_STDB_DB  || "memorycare-db";
 
-// Placeholder - Dev 3 replaces with real SpacetimeDB client in Phase 2
-export const stdb = {
-  call: (reducer: string, ...args: unknown[]) => {
-    console.log("[stdb mock] " + reducer, args)
-  },
-  subscribe: (queries: string[]) => {
-    console.log("[stdb mock] subscribe", queries)
-  },
-}
-
-export { STDB_URL, STDB_DB }
+// For component usage, prefer:
+//   import { useSpacetime } from "../components/SpacetimeProvider";
+//   const { conn, isConnected } = useSpacetime();

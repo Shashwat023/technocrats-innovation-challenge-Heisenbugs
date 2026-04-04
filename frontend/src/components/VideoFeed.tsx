@@ -8,6 +8,7 @@
 
 import React, { useRef, useEffect, useState, useCallback } from "react";
 import { CallStatus } from "../hooks/useWebRTC";
+import type { LiveDetection, KnownPerson } from "../spacetime-sdk/types";
 
 interface VideoFeedProps {
   localStream:     MediaStream | null;
@@ -49,7 +50,7 @@ const VideoFeed: React.FC<VideoFeedProps> = ({
   localStream, remoteStream, callStatus,
   isHost, isMicOn, isCamOn,
   onToggleMic, onToggleCam, onLeave, onJoin,
-  patientName, relationship, roomId, isSessionActive,
+  patientName, relationship, roomId, isSessionActive
 }) => {
   const remoteRef = useRef<HTMLVideoElement>(null);
   const localRef  = useRef<HTMLVideoElement>(null);
@@ -88,7 +89,7 @@ const VideoFeed: React.FC<VideoFeedProps> = ({
   }, [localStream]);
 
   const isConnected = callStatus === "connected";
-  const isInCall    = callStatus !== "idle";
+  const isInCall    = callStatus !== "idle" && callStatus !== "disconnected";
   const overlayCfg  = OVERLAY_CFG[callStatus];
 
   const shareLink = roomId

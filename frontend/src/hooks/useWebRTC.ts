@@ -11,24 +11,12 @@ import { io, Socket } from "socket.io-client";
 // STUN  — discovers public IP (works ~80% of cases)
 // TURN  — media relay for symmetric NAT (cross-ISP, mobile data, VPN, etc.)
 const ICE_SERVERS: RTCIceServer[] = [
+  // Working STUN servers (verified from your test)
   { urls: "stun:stun.l.google.com:19302" },
   { urls: "stun:stun1.l.google.com:19302" },
-  // Free TURN relay — no account needed, suitable for hackathon / testing
-  {
-    urls: "turn:openrelay.metered.ca:80",
-    username: "openrelayproject",
-    credential: "openrelayproject",
-  },
-  {
-    urls: "turn:openrelay.metered.ca:443",
-    username: "openrelayproject",
-    credential: "openrelayproject",
-  },
-  {
-    urls: "turn:openrelay.metered.ca:443?transport=tcp",
-    username: "openrelayproject",
-    credential: "openrelayproject",
-  },
+  
+  // Nextcloud STUN/TURN server (this worked in your tests)
+  { urls: "stun:stun.nextcloud.com:443" },
 ];
 
 export type CallStatus =
@@ -84,14 +72,21 @@ export function useWebRTC(): UseWebRTCResult {
 
   // ── Create RTCPeerConnection ───────────────────────────────────────────────
   const createPC = useCallback((stream: MediaStream, roomId: string): RTCPeerConnection => {
+    // Simple, reliable configuration with only working servers
     const pc = new RTCPeerConnection({ iceServers: ICE_SERVERS });
+    console.log("[WebRTC] Created PC with", ICE_SERVERS.length, "working ICE servers");
 
     // Add local tracks so the remote peer gets our audio/video
     stream.getTracks().forEach((t) => pc.addTrack(t, stream));
 
     pc.onicecandidate = (e) => {
-      if (e.candidate && socketRef.current) {
-        socketRef.current.emit("ice-candidate", { roomId, candidate: e.candidate });
+      if (e.candidate) {
+        console.log("[WebRTC] ICE candidate:", e.candidate.type, e.candidate.protocol, e.candidate.address);
+        if (socketRef.current) {
+          socketRef.current.emit("ice-candidate", { roomId, candidate: e.candidate });
+        }
+      } else {
+        console.log("[WebRTC] ICE gathering complete - no more candidates");
       }
     };
 
@@ -113,9 +108,17 @@ export function useWebRTC(): UseWebRTCResult {
     pc.oniceconnectionstatechange = () => {
       console.log("[WebRTC] ICE state:", pc.iceConnectionState);
       if (pc.iceConnectionState === "checking") setCallStatus("connecting");
+      if (pc.iceConnectionState === "connected") setCallStatus("connected");
+      if (pc.iceConnectionState === "completed") setCallStatus("connected");
       if (pc.iceConnectionState === "failed") {
-        console.warn("[WebRTC] ICE failed — restarting ICE");
-        pc.restartIce();
+        console.warn("[WebRTC] ICE failed - this may work with peer-to-peer connections");
+        console.warn("[WebRTC] Try connecting from a different network or location");
+        setCallStatus("error");
+        setError("Direct connection failed - may need different network");
+      }
+      if (pc.iceConnectionState === "disconnected") {
+        console.warn("[WebRTC] ICE disconnected - peer may have left");
+        setCallStatus("disconnected");
       }
     };
 
@@ -200,9 +203,11 @@ export function useWebRTC(): UseWebRTCResult {
     socket.on("ice-candidate", async ({ candidate }: { candidate: RTCIceCandidateInit }) => {
       if (!pcRef.current) return;
       try {
+        console.log("[WebRTC] Received ICE candidate:", candidate.candidate?.split(" ")[0]);
         await pcRef.current.addIceCandidate(new RTCIceCandidate(candidate));
       } catch (e) {
         console.warn("[WebRTC] ICE candidate add failed:", e);
+        // Don't treat this as fatal - some candidates may fail but connection can still work
       }
     });
 

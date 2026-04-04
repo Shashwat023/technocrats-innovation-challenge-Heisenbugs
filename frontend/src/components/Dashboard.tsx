@@ -1,34 +1,78 @@
 // frontend/src/components/Dashboard.tsx
-import React, { useState, useCallback, useEffect } from "react";
-import LiveSummaryBlock   from "./LiveSummaryBlock";
-import VideoFeed          from "./VideoFeed";
-import { useWebRTC }        from "../hooks/useWebRTC";
-import { getDefaultFixtureClients } from "../fixtures/sessionFixtures";
+// Full caregiver dashboard.
+//
+// STDB INTEGRATION:
+//   - startMeeting reducer called when session begins
+//   - updateCue reducer called whenever a new live summary arrives
+//   - endMeeting + saveMeetingSummary reducers called on session end
+//   - All reducers are no-ops when STDB is not yet connected (graceful degradation)
+//
+// MIDDLEWARE: audio recording + snapshots only START once the client
+// (remote peer) has joined the call (callStatus === "connected").
 
-const CLIENTS = getDefaultFixtureClients();
-const DUMMY_SUMMARY = {
-  summary: "Dummy summary placeholder. Redis wiring will feed this panel later.",
-  chunkNumber: 1,
-  timestamp: 1744000000,
-  isPolling: false,
-};
+import React, { useState, useCallback, useRef, useEffect } from "react";
+import { Link } from "react-router-dom";
+import VoiceRecorder from "./VoiceRecorder";
+import LiveSummaryBlock from "./LiveSummaryBlock";
+import VideoFeed from "./VideoFeed";
+import SnapshotCapture from "./SnapshotCapture";
+import FaceDisplay from "./FaceDisplay";
+import { useLiveRedis } from "../hooks/useLiveRedis";
+import { useVoiceRecorder } from "../hooks/useVoiceRecorder";
+import { useWebRTC } from "../hooks/useWebRTC";
+import { endSession, SessionEndResponse } from "../lib/api";
+import { useSpacetime } from "./SpacetimeProvider";
+import { useSpacetimeTables } from "../hooks/useSpacetimeTables";
+import { useLiveDetection } from "../hooks/useLiveDetection";
+
+const CLIENTS = [
+  { id: "person_101", name: "Margaret Johnson", relationship: "Patient" },
+  { id: "person_102", name: "Robert Smith", relationship: "Patient" },
+  { id: "person_103", name: "Eleanor Davis", relationship: "Patient" },
+];
 
 // ── Icons ──────────────────────────────────────────────────────────────────────
 const IconBrain = () => (
   <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-    <path d="M9.5 2A2.5 2.5 0 0 1 12 4.5v15a2.5 2.5 0 0 1-4.96-.44 2.5 2.5 0 0 1-2.96-3.08 3 3 0 0 1-.34-5.58 2.5 2.5 0 0 1 1.32-4.24 2.5 2.5 0 0 1 1.98-3A2.5 2.5 0 0 1 9.5 2Z"/>
-    <path d="M14.5 2A2.5 2.5 0 0 0 12 4.5v15a2.5 2.5 0 0 0 4.96-.44 2.5 2.5 0 0 0 2.96-3.08 3 3 0 0 0 .34-5.58 2.5 2.5 0 0 0-1.32-4.24 2.5 2.5 0 0 0-1.98-3A2.5 2.5 0 0 0 14.5 2Z"/>
+    <path d="M9.5 2A2.5 2.5 0 0 1 12 4.5v15a2.5 2.5 0 0 1-4.96-.44 2.5 2.5 0 0 1-2.96-3.08 3 3 0 0 1-.34-5.58 2.5 2.5 0 0 1 1.32-4.24 2.5 2.5 0 0 1 1.98-3A2.5 2.5 0 0 1 9.5 2Z" />
+    <path d="M14.5 2A2.5 2.5 0 0 0 12 4.5v15a2.5 2.5 0 0 0 4.96-.44 2.5 2.5 0 0 0 2.96-3.08 3 3 0 0 0 .34-5.58 2.5 2.5 0 0 0-1.32-4.24 2.5 2.5 0 0 0-1.98-3A2.5 2.5 0 0 0 14.5 2Z" />
   </svg>
 );
-const IconPlay  = () => <svg width="15" height="15" viewBox="0 0 24 24" fill="currentColor"><polygon points="5 3 19 12 5 21 5 3"/></svg>;
-const IconStop  = () => <svg width="13" height="13" viewBox="0 0 24 24" fill="currentColor"><rect x="3" y="3" width="18" height="18" rx="2"/></svg>;
+const IconPlay = () => <svg width="15" height="15" viewBox="0 0 24 24" fill="currentColor"><polygon points="5 3 19 12 5 21 5 3" /></svg>;
+const IconStop = () => <svg width="13" height="13" viewBox="0 0 24 24" fill="currentColor"><rect x="3" y="3" width="18" height="18" rx="2" /></svg>;
+const IconClose = () => (
+  <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round">
+    <line x1="18" y1="6" x2="6" y2="18" /><line x1="6" y1="6" x2="18" y2="18" />
+  </svg>
+);
+
+/** Call a SpacetimeDB reducer safely — logs on failure, never throws. */
+function callReducer(fn: () => void, label: string) {
+  try {
+    fn();
+    console.log(`✅ STDB reducer: ${label}`);
+  } catch (err) {
+    console.error(`🔴 STDB reducer failed (${label}):`, err);
+  }
+}
+
 const Dashboard: React.FC = () => {
   const [selectedClientId, setSelectedClientId] = useState(CLIENTS[0].id);
-  const [errorToast,       setErrorToast]       = useState<string | null>(null);
-  const [roomId,           setRoomId]           = useState<string | null>(null);
-  const [roomActive,       setRoomActive]       = useState(false);
+  const [sessionId, setSessionId] = useState<string | null>(null);
+  const [isSessionActive, setIsSessionActive] = useState(false);
+  const [finalSummary, setFinalSummary] = useState<SessionEndResponse | null>(null);
+  const [errorToast, setErrorToast] = useState<string | null>(null);
 
   // ── Hooks ──────────────────────────────────────────────────────────────────
+  const { conn: stdbConn, isConnected: stdbConnected } = useSpacetime();
+  const { knownPersons } = useSpacetimeTables();
+
+  const { startRecording, stopRecording, isRecording, currentChunk, error: recorderError } =
+    useVoiceRecorder(sessionId);
+
+  const { summary, chunkNumber, timestamp, isPolling } =
+    useLiveRedis(sessionId, isSessionActive);
+
   const {
     callStatus, localStream, remoteStream,
     isHost, joinRoom, leaveCall,
@@ -36,7 +80,46 @@ const Dashboard: React.FC = () => {
     isMicOn, isCamOn, error: webrtcError,
   } = useWebRTC();
 
+  // Live detection UI overlay is now handled internally by VideoFeed -> FaceDisplay
+
+  // ── Client gate ────────────────────────────────────────────────────────────
   const clientConnected = callStatus === "connected";
+  const recordingStartedRef = useRef(false);
+  const lastCueChunkRef = useRef<number | null>(null);
+
+  // When the client connects → start recording
+  useEffect(() => {
+    if (isSessionActive && sessionId && clientConnected && !isRecording && !recordingStartedRef.current) {
+      recordingStartedRef.current = true;
+      startRecording();
+    }
+  }, [isSessionActive, sessionId, clientConnected, isRecording, startRecording]);
+
+  // Reset recording gate on session end or call drop
+  useEffect(() => {
+    if (!isSessionActive || callStatus === "idle" || callStatus === "disconnected") {
+      recordingStartedRef.current = false;
+    }
+  }, [isSessionActive, callStatus]);
+
+  // ── STDB: push each new chunk summary as a cue ─────────────────────────────
+  // Fires whenever useLiveRedis delivers a NEW chunk number.
+  useEffect(() => {
+    if (!stdbConn || !stdbConnected) return;
+    if (!sessionId || !summary || chunkNumber === null) return;
+    if (chunkNumber === lastCueChunkRef.current) return; // already sent this chunk
+
+    lastCueChunkRef.current = chunkNumber;
+
+    callReducer(
+      () => stdbConn.reducers.updateCue({
+        personId: selectedClientId,
+        sessionId,
+        newCue: summary,
+      }),
+      `updateCue chunk#${chunkNumber}`
+    );
+  }, [summary, chunkNumber, sessionId, selectedClientId, stdbConn, stdbConnected]);
 
   // ── WebRTC error toast ─────────────────────────────────────────────────────
   useEffect(() => {
@@ -48,56 +131,126 @@ const Dashboard: React.FC = () => {
 
   const selectedClient = CLIENTS.find((c) => c.id === selectedClientId) ?? CLIENTS[0];
 
-  // ── Room lifecycle ─────────────────────────────────────────────────────────
+  // ── Start session ──────────────────────────────────────────────────────────
   const handleStartSession = useCallback(async () => {
-    const uniqueSuffix = `${Date.now()}_${Math.random().toString(36).substring(2, 9)}`;
-    const id = `${selectedClientId}_room_${uniqueSuffix}`;
-    setRoomId(id);
-    setRoomActive(true);
-  }, [selectedClientId]);
+    // 🔥 FOR TESTING: Matching bridge.py's hardcoded SESSION_ID
+    const id = "session_alpha_1";
+
+    setSessionId(id);
+    setIsSessionActive(true);
+    setFinalSummary(null);
+    recordingStartedRef.current = false;
+    lastCueChunkRef.current = null;
+
+    // STDB: log meeting start
+    if (stdbConn && stdbConnected) {
+      callReducer(
+        () => stdbConn.reducers.startMeeting({ sessionId: id, personId: selectedClientId }),
+        "startMeeting"
+      );
+    }
+  }, [selectedClientId, stdbConn, stdbConnected]);
 
   // ── Join video call ────────────────────────────────────────────────────────
   const handleJoinCall = useCallback(async () => {
-    if (!roomId) return;
-    await joinRoom(roomId);
-  }, [roomId, joinRoom]);
+    if (!sessionId) return;
+    await joinRoom(sessionId);
+  }, [sessionId, joinRoom]);
 
-  const handleLeaveRoom = useCallback(() => {
+  // ── End session ────────────────────────────────────────────────────────────
+  const handleEndSession = useCallback(async () => {
+    stopRecording();
     leaveCall();
-    setRoomActive(false);
-    setRoomId(null);
-  }, [leaveCall]);
+    setIsSessionActive(false);
+    recordingStartedRef.current = false;
 
-  const waitingForClient = roomActive && callStatus !== "connected" && callStatus !== "idle";
+    if (!sessionId) return;
+
+    // STDB: close the meeting log
+    if (stdbConn && stdbConnected) {
+      callReducer(
+        () => stdbConn.reducers.endMeeting({ sessionId }),
+        "endMeeting"
+      );
+    }
+
+    // LLM: compile final summary
+    const result = await endSession(sessionId);
+    if (result) {
+      setFinalSummary(result);
+
+      // STDB: persist the compiled summary permanently
+      if (stdbConn && stdbConnected && result.final_summary) {
+        const meetingDate = new Date().toISOString().split("T")[0]; // YYYY-MM-DD
+        callReducer(
+          () => stdbConn.reducers.saveMeetingSummary({
+            sessionId,
+            personId: selectedClientId,
+            summary: result.final_summary,
+            meetingDate,
+          }),
+          "saveMeetingSummary"
+        );
+      }
+    }
+  }, [sessionId, selectedClientId, stopRecording, leaveCall, stdbConn, stdbConnected]);
+
+  const handleDismissFinal = useCallback(() => {
+    setFinalSummary(null);
+    setSessionId(null);
+  }, []);
+
+  const waitingForClient = isSessionActive && callStatus !== "connected" && callStatus !== "idle";
 
   // ── Render ──────────────────────────────────────────────────────────────────
   return (
     <div className="app">
-
-      {/* ── Navbar ─────────────────────────────────────────────────────────── */}
       <nav className="navbar">
-        <div className="navbar-brand">
-          <div className="navbar-logo"><IconBrain /></div>
+        <Link to="/" className="nav-brand">
+          <div className="nav-logo"><IconBrain /></div>
           <div>
-            <div className="navbar-title">MemoryCare</div>
-            <div className="navbar-subtitle">AI-Assisted Dementia Care</div>
+            <div className="nav-wordmark">MemoryCare</div>
+            <div className="nav-subtitle">AI-Assisted Dementia Care</div>
           </div>
+        </Link>
+
+        <div style={{ display: "flex", alignItems: "center", gap: "0.25rem" }}>
+          {["Home:/", "Dashboard:/dashboard", "Sessions:/sessions", "Insights:/insights"].map((item) => {
+            const [label, path] = item.split(":");
+            return (
+              <Link key={path} to={path} style={{
+                padding: "0.5rem 0.75rem", fontSize: "0.875rem", fontWeight: 500,
+                color: "var(--text-3)", textDecoration: "none", borderRadius: "var(--radius-sm)",
+              }}>{label}</Link>
+            );
+          })}
         </div>
 
         <div className="navbar-right">
-          <span className={`call-badge ${callStatus}`}>
-            {callStatus === "connected"    && <><span className="dot dot-active"  />Live</>}
-            {callStatus === "waiting"      && <><span className="dot dot-pending" />Waiting for client</>}
-            {callStatus === "connecting"   && <><span className="dot dot-pending" />Connecting</>}
-            {callStatus === "idle"         && "No call"}
-            {callStatus === "disconnected" && <><span className="dot dot-idle"    />Disconnected</>}
-            {callStatus === "error"        && "Error"}
+          {/* STDB connection indicator */}
+          <span style={{
+            display: "inline-flex", alignItems: "center", gap: "0.375rem",
+            fontSize: "0.6875rem", fontWeight: 600,
+            color: stdbConnected ? "var(--success)" : "var(--text-4)",
+          }}>
+            <span className={`dot ${stdbConnected ? "dot-active" : "dot-idle"}`} style={{ width: 6, height: 6 }} />
+            {stdbConnected ? "DB Live" : "DB Connecting"}
           </span>
+
+          <span className={`call-badge ${callStatus}`}>
+            {callStatus === "connected" && <><span className="dot dot-active" />Live</>}
+            {callStatus === "waiting" && <><span className="dot dot-pending" />Waiting</>}
+            {callStatus === "connecting" && <><span className="dot dot-pending" />Connecting</>}
+            {callStatus === "idle" && "No call"}
+            {callStatus === "disconnected" && <><span className="dot dot-idle" />Disconnected</>}
+            {callStatus === "error" && "Error"}
+          </span>
+
           <select
             className="select"
             value={selectedClientId}
             onChange={(e) => setSelectedClientId(e.target.value)}
-            disabled={roomActive}
+            disabled={isSessionActive}
           >
             {CLIENTS.map((c) => (
               <option key={c.id} value={c.id}>{c.name}</option>
@@ -106,60 +259,51 @@ const Dashboard: React.FC = () => {
         </div>
       </nav>
 
-      {/* ── Main ───────────────────────────────────────────────────────────── */}
       <main className="main-content">
-
-        {/* Session controls bar */}
         <div className="session-bar" style={{ marginBottom: "1.25rem" }}>
-          {!roomActive ? (
+          {!isSessionActive ? (
             <button className="btn btn-primary" onClick={handleStartSession}>
-              <IconPlay /> Create Room
+              <IconPlay /> Start Session
             </button>
           ) : (
-            <button className="btn btn-danger" onClick={handleLeaveRoom}>
-              <IconStop /> Leave Room
+            <button className="btn btn-danger" onClick={handleEndSession}>
+              <IconStop /> End Session
             </button>
           )}
 
-          {/* Client gate status */}
+          <VoiceRecorder isRecording={isRecording} currentChunk={currentChunk} error={recorderError} />
+
           {waitingForClient && (
             <span style={{
               display: "inline-flex", alignItems: "center", gap: "0.45rem",
-              padding: "0.3rem 0.875rem",
-              borderRadius: "var(--radius-full)",
-              background: "var(--warning-dim)",
-              border: "1px solid rgba(245,158,11,0.25)",
-              fontSize: "0.75rem", fontWeight: 600,
-              color: "var(--warning)",
+              padding: "0.3rem 0.875rem", borderRadius: "var(--radius-full)",
+              background: "var(--warning-dim)", border: "1px solid rgba(245,158,11,0.25)",
+              fontSize: "0.75rem", fontWeight: 600, color: "var(--warning)",
             }}>
               <span className="dot dot-pending" style={{ width: 6, height: 6 }} />
-              Waiting for client to join
+              Waiting for client — recording starts automatically on join
             </span>
           )}
 
-          {clientConnected && (
+          {clientConnected && isRecording && (
             <span style={{
               display: "inline-flex", alignItems: "center", gap: "0.45rem",
-              padding: "0.3rem 0.875rem",
-              borderRadius: "var(--radius-full)",
-              background: "var(--success-dim)",
-              border: "1px solid rgba(34,197,94,0.25)",
-              fontSize: "0.75rem", fontWeight: 600,
-              color: "var(--success)",
+              padding: "0.3rem 0.875rem", borderRadius: "var(--radius-full)",
+              background: "var(--success-dim)", border: "1px solid rgba(34,197,94,0.25)",
+              fontSize: "0.75rem", fontWeight: 600, color: "var(--success)",
             }}>
               <span className="dot dot-active" style={{ width: 6, height: 6 }} />
-              Client connected — videochat live
+              Client connected — session active
             </span>
           )}
 
-          {roomId && (
-            <span className="session-chip" title={roomId} style={{ marginLeft: "auto" }}>
-              {roomId}
+          {sessionId && (
+            <span className="session-chip" title={sessionId} style={{ marginLeft: "auto" }}>
+              {sessionId}
             </span>
           )}
         </div>
 
-        {/* Bento grid */}
         <div className="bento-grid">
           <div className="bento-main">
             <VideoFeed
@@ -175,23 +319,48 @@ const Dashboard: React.FC = () => {
               onJoin={handleJoinCall}
               patientName={selectedClient.name}
               relationship={selectedClient.relationship}
-              roomId={roomId}
-              isSessionActive={roomActive}
+              roomId={sessionId}
+              isSessionActive={isSessionActive}
             />
           </div>
 
           <div className="bento-side">
+            {clientConnected && (
+              <FaceDisplay sessionId={sessionId} />
+            )}
             <LiveSummaryBlock
-              summary={DUMMY_SUMMARY.summary}
-              chunkNumber={DUMMY_SUMMARY.chunkNumber}
-              timestamp={DUMMY_SUMMARY.timestamp}
-              isPolling={DUMMY_SUMMARY.isPolling}
+              summary={summary}
+              chunkNumber={chunkNumber}
+              timestamp={timestamp}
+              isPolling={isPolling}
             />
           </div>
         </div>
       </main>
 
-      {/* Error toast */}
+      <SnapshotCapture
+        active={isSessionActive && clientConnected}
+        sessionId={sessionId}
+        videoElementId="video-remote"
+      />
+
+      {finalSummary && (
+        <div className="overlay" onClick={handleDismissFinal}>
+          <div className="modal" onClick={(e) => e.stopPropagation()}>
+            <div className="modal-title">Session Complete</div>
+            <div className="modal-sub">AI-generated clinical session note · saved to SpacetimeDB</div>
+            <div className="modal-body">{finalSummary.final_summary}</div>
+            <div className="modal-footer">
+              <button className="btn btn-secondary" onClick={handleDismissFinal}>
+                <IconClose /> Close
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+
+
       {errorToast && (
         <div className="toast" onClick={() => setErrorToast(null)}>
           <span className="dot dot-live" />
