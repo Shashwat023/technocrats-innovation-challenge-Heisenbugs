@@ -114,6 +114,9 @@ async def detect(request: Request):
         # 🔥 Matching
         exists, match_file, dist = is_same_person(embedding)
 
+        if match_file is None:
+            exists = False
+
         # 🔥 EXISTING FACE
         if exists:
             person_id = match_file.split(".")[0]
@@ -128,20 +131,20 @@ async def detect(request: Request):
             await result_queue.put(result)
             return result
 
-        # 🔥 SAFETY CHECK (VERY IMPORTANT)
-        # Prevent false "new person" if very close match exists
-        if dist is not None and dist < 0.45:
-            person_id = match_file.split(".")[0]
+        # # 🔥 SAFETY CHECK (VERY IMPORTANT)
+        # # Prevent false "new person" if very close match exists
+        # if dist is not None and dist < 0.45:
+        #     person_id = match_file.split(".")[0]
 
-            result = {
-                "person_id": person_id,
-                "is_new": False
-            }
+        #     result = {
+        #         "person_id": person_id,
+        #         "is_new": False
+        #     }
 
-            print(f"⚠️ CLOSE MATCH → treating as EXISTS ({person_id})")
+        #     print(f"⚠️ CLOSE MATCH → treating as EXISTS ({person_id})")
 
-            await result_queue.put(result)
-            return result
+        #     await result_queue.put(result)
+        #     return result
 
         # 🔥 NEW FACE
         filename = f"{uuid.uuid4().hex}.jpg"
