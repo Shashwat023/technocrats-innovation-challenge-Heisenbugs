@@ -10,12 +10,36 @@ import {
   type Infer as __Infer,
 } from "spacetimedb";
 
+export const BehaviourEvent = __t.object("BehaviourEvent", {
+  eventId: __t.string(),
+  patientId: __t.string(),
+  eventType: __t.string(),
+  severity: __t.string(),
+  timestamp: __t.u64(),
+  durationMinutes: __t.i32(),
+  notes: __t.string(),
+});
+export type BehaviourEvent = __Infer<typeof BehaviourEvent>;
+
 export const CaretakerIdentity = __t.object("CaretakerIdentity", {
   identity: __t.identity(),
   displayName: __t.string(),
   registeredAt: __t.u64(),
 });
 export type CaretakerIdentity = __Infer<typeof CaretakerIdentity>;
+
+export const CognitiveScore = __t.object("CognitiveScore", {
+  scoreId: __t.string(),
+  patientId: __t.string(),
+  date: __t.string(),
+  score: __t.i32(),
+  memoryScore: __t.i32(),
+  engagementScore: __t.i32(),
+  moodScore: __t.i32(),
+  notes: __t.string(),
+  createdAt: __t.u64(),
+});
+export type CognitiveScore = __Infer<typeof CognitiveScore>;
 
 export const KnownPerson = __t.object("KnownPerson", {
   personId: __t.string(),
@@ -48,6 +72,16 @@ export const Medication = __t.object("Medication", {
   createdAt: __t.u64(),
 });
 export type Medication = __Infer<typeof Medication>;
+
+export const MedicationAdherence = __t.object("MedicationAdherence", {
+  date: __t.string(),
+  patientId: __t.string(),
+  scheduledCount: __t.i32(),
+  takenCount: __t.i32(),
+  missedCount: __t.i32(),
+  adherenceRate: __t.i32(),
+});
+export type MedicationAdherence = __Infer<typeof MedicationAdherence>;
 
 export const MedicationSchedule = __t.object("MedicationSchedule", {
   scheduledId: __t.u64(),
@@ -100,3 +134,25 @@ export const SafeZone = __t.object("SafeZone", {
 });
 export type SafeZone = __Infer<typeof SafeZone>;
 
+export const QuizLog = __t.object("QuizLog", {
+  quizSessionId: __t.string(),
+  patientId: __t.string(),
+  accuracyScore: __t.f64(),
+  speedScore: __t.f64(),
+  averageScore: __t.f64(),
+  questionsTaken: __t.i32(),
+  createdAt: __t.u64(),
+});
+export type QuizLog = __Infer<typeof QuizLog>;
+
+export const SentimentLog = __t.object("SentimentLog", {
+  logId: __t.string(),
+  sessionId: __t.string(),
+  personId: __t.string(),
+  timestamp: __t.u64(),
+  sentimentScore: __t.f64(),
+  dominantEmotion: __t.string(),
+  emotionConfidence: __t.f64(),
+  cueText: __t.string(),
+});
+export type SentimentLog = __Infer<typeof SentimentLog>;

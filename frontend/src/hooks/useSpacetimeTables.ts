@@ -9,12 +9,23 @@
 
 import { useEffect, useState } from "react";
 import { useSpacetime } from "../components/SpacetimeProvider";
-import type { KnownPerson, MeetingSummary, Notification, MeetingLog } from "../spacetime-sdk/types";
+import type {
+  KnownPerson,
+  MeetingSummary,
+  Notification,
+  MeetingLog,
+  QuizLog,
+  Medication,
+  SafeZone,
+} from "../spacetime-sdk/types";
 
 export interface SpacetimeTablesResult {
   knownPersons:     KnownPerson[];
   meetingSummaries: MeetingSummary[];
   meetingLogs:      MeetingLog[];
+  quizLog:          QuizLog[];
+  medications:      Medication[];
+  safeZones:        SafeZone[];
   notifications:    Notification[];
   /** True once initial table sync is complete */
   synced: boolean;
@@ -26,6 +37,9 @@ export function useSpacetimeTables(): SpacetimeTablesResult {
   const [knownPersons,     setKnownPersons]     = useState<KnownPerson[]>([]);
   const [meetingSummaries, setMeetingSummaries] = useState<MeetingSummary[]>([]);
   const [meetingLogs,      setMeetingLogs]      = useState<MeetingLog[]>([]);
+  const [quizLog,          setQuizLog]          = useState<QuizLog[]>([]);
+  const [medications,      setMedications]      = useState<Medication[]>([]);
+  const [safeZones,        setSafeZones]        = useState<SafeZone[]>([]);
   const [notifications,    setNotifications]    = useState<Notification[]>([]);
   const [synced,           setSynced]           = useState(false);
 
@@ -39,6 +53,17 @@ export function useSpacetimeTables(): SpacetimeTablesResult {
         setMeetingSummaries([...conn.db.meetingSummary.iter()]);
         setMeetingLogs([...conn.db.meetingLog.iter()]);
         setNotifications([...conn.db.notification.iter()]);
+
+        // Tables added by feature work — use `as any` to avoid SDK type gaps
+        const db = conn.db as any;
+        const qLogs = db.quizLog ? [...db.quizLog.iter()] : [];
+        const meds  = db.medication ? [...db.medication.iter()] : [];
+        const zones = db.safeZone ? [...db.safeZone.iter()] : [];
+        console.log("📊 SpacetimeDB sync — quizLogs:", qLogs.length, "meds:", meds.length, "zones:", zones.length);
+        setQuizLog(qLogs);
+        setMedications(meds);
+        setSafeZones(zones);
+
         setSynced(true);
       } catch (e) {
         console.warn("[useSpacetimeTables] initial load error:", e);
@@ -107,7 +132,53 @@ export function useSpacetimeTables(): SpacetimeTablesResult {
         prev.filter((n) => n.notificationId !== row.notificationId)
       );
     });
+
+    // ── QuizLog ────────────────────────────────────────────────────────────
+    const db = conn.db as any;
+    if (db.quizLog) {
+      db.quizLog.onInsert((_ctx: any, row: QuizLog) => {
+        console.log("📈 New Quiz Log:", row.quizSessionId);
+        setQuizLog((prev) => {
+          const exists = prev.some((l) => l.quizSessionId === row.quizSessionId);
+          return exists ? prev : [...prev, row];
+        });
+      });
+    }
+
+    // ── Medication ─────────────────────────────────────────────────────────
+    if (db.medication) {
+      db.medication.onInsert((_ctx: any, row: Medication) => {
+        setMedications((prev) => {
+          const exists = prev.some((m) => m.medicationId === row.medicationId);
+          return exists ? prev : [...prev, row];
+        });
+      });
+      db.medication.onUpdate((_ctx: any, _old: Medication, newRow: Medication) => {
+        setMedications((prev) =>
+          prev.map((m) => (m.medicationId === newRow.medicationId ? newRow : m))
+        );
+      });
+      db.medication.onDelete((_ctx: any, row: Medication) => {
+        setMedications((prev) => prev.filter((m) => m.medicationId !== row.medicationId));
+      });
+    }
+
+    // ── SafeZone ───────────────────────────────────────────────────────────
+    if (db.safeZone) {
+      db.safeZone.onInsert((_ctx: any, row: SafeZone) => {
+        setSafeZones((prev) => {
+          const exists = prev.some((z) => z.zoneId === row.zoneId);
+          return exists ? prev : [...prev, row];
+        });
+      });
+      db.safeZone.onUpdate((_ctx: any, _old: SafeZone, newRow: SafeZone) => {
+        setSafeZones((prev) =>
+          prev.map((z) => (z.zoneId === newRow.zoneId ? newRow : z))
+        );
+      });
+    }
+
   }, [conn, isConnected]);
 
-  return { knownPersons, meetingSummaries, meetingLogs, notifications, synced };
+  return { knownPersons, meetingSummaries, meetingLogs, quizLog, medications, safeZones, notifications, synced };
 }

@@ -39,12 +39,14 @@ import AddMedicationReducer from "./add_medication_reducer";
 import ClearLiveDetectionReducer from "./clear_live_detection_reducer";
 import CreateNewFaceReducer from "./create_new_face_reducer";
 import EndMeetingReducer from "./end_meeting_reducer";
+import LogQuizSessionReducer from "./log_quiz_session_reducer";
 import MarkMedicationTakenReducer from "./mark_medication_taken_reducer";
 import MarkNotificationReadReducer from "./mark_notification_read_reducer";
 import RegisterCaretakerReducer from "./register_caretaker_reducer";
 import RegisterPatientReducer from "./register_patient_reducer";
 import RemoveMedicationReducer from "./remove_medication_reducer";
 import SaveMeetingSummaryReducer from "./save_meeting_summary_reducer";
+import SeedMockQuizHistoryReducer from "./seed_mock_quiz_history_reducer";
 import SetSafeZoneReducer from "./set_safe_zone_reducer";
 import StartMeetingReducer from "./start_meeting_reducer";
 import TriggerSafeZoneAlertReducer from "./trigger_safe_zone_alert_reducer";
@@ -55,18 +57,45 @@ import UpdatePersonDetailsReducer from "./update_person_details_reducer";
 // Import all procedure arg schemas
 
 // Import all table schema definitions
+import BehaviourEventRow from "./behaviour_event_table";
+import CognitiveScoreRow from "./cognitive_score_table";
 import KnownPersonRow from "./known_person_table";
 import LiveDetectionRow from "./live_detection_table";
 import MedicationRow from "./medication_table";
+import MedicationAdherenceRow from "./medication_adherence_table";
 import MeetingLogRow from "./meeting_log_table";
 import MeetingSummaryRow from "./meeting_summary_table";
 import NotificationRow from "./notification_table";
+import QuizLogRow from "./quiz_log_table";
 import SafeZoneRow from "./safe_zone_table";
+import SentimentLogRow from "./sentiment_log_table";
 
 /** Type-only namespace exports for generated type groups. */
 
 /** The schema information for all tables in this module. This is defined the same was as the tables would have been defined in the server. */
 const tablesSchema = __schema({
+  behaviourEvent: __table({
+    name: 'behaviour_event',
+    indexes: [
+      { accessor: 'eventId', name: 'behaviour_event_event_id_idx_btree', algorithm: 'btree', columns: [
+        'eventId',
+      ] },
+    ],
+    constraints: [
+      { name: 'behaviour_event_event_id_key', constraint: 'unique', columns: ['eventId'] },
+    ],
+  }, BehaviourEventRow),
+  cognitiveScore: __table({
+    name: 'cognitive_score',
+    indexes: [
+      { accessor: 'scoreId', name: 'cognitive_score_score_id_idx_btree', algorithm: 'btree', columns: [
+        'scoreId',
+      ] },
+    ],
+    constraints: [
+      { name: 'cognitive_score_score_id_key', constraint: 'unique', columns: ['scoreId'] },
+    ],
+  }, CognitiveScoreRow),
   knownPerson: __table({
     name: 'known_person',
     indexes: [
@@ -100,6 +129,17 @@ const tablesSchema = __schema({
       { name: 'medication_medication_id_key', constraint: 'unique', columns: ['medicationId'] },
     ],
   }, MedicationRow),
+  medicationAdherence: __table({
+    name: 'medication_adherence',
+    indexes: [
+      { accessor: 'date', name: 'medication_adherence_date_idx_btree', algorithm: 'btree', columns: [
+        'date',
+      ] },
+    ],
+    constraints: [
+      { name: 'medication_adherence_date_key', constraint: 'unique', columns: ['date'] },
+    ],
+  }, MedicationAdherenceRow),
   meetingLog: __table({
     name: 'meeting_log',
     indexes: [
@@ -133,6 +173,17 @@ const tablesSchema = __schema({
       { name: 'notification_notification_id_key', constraint: 'unique', columns: ['notificationId'] },
     ],
   }, NotificationRow),
+  quizLog: __table({
+    name: 'quiz_log',
+    indexes: [
+      { accessor: 'quizSessionId', name: 'quiz_log_quiz_session_id_idx_btree', algorithm: 'btree', columns: [
+        'quizSessionId',
+      ] },
+    ],
+    constraints: [
+      { name: 'quiz_log_quiz_session_id_key', constraint: 'unique', columns: ['quizSessionId'] },
+    ],
+  }, QuizLogRow),
   safeZone: __table({
     name: 'safe_zone',
     indexes: [
@@ -144,6 +195,17 @@ const tablesSchema = __schema({
       { name: 'safe_zone_zone_id_key', constraint: 'unique', columns: ['zoneId'] },
     ],
   }, SafeZoneRow),
+  sentimentLog: __table({
+    name: 'sentiment_log',
+    indexes: [
+      { accessor: 'logId', name: 'sentiment_log_log_id_idx_btree', algorithm: 'btree', columns: [
+        'logId',
+      ] },
+    ],
+    constraints: [
+      { name: 'sentiment_log_log_id_key', constraint: 'unique', columns: ['logId'] },
+    ],
+  }, SentimentLogRow),
 });
 
 /** The schema information for all reducers in this module. This is defined the same way as the reducers would have been defined in the server, except the body of the reducer is omitted in code generation. */
@@ -153,12 +215,14 @@ const reducersSchema = __reducers(
   __reducerSchema("clear_live_detection", ClearLiveDetectionReducer),
   __reducerSchema("create_new_face", CreateNewFaceReducer),
   __reducerSchema("end_meeting", EndMeetingReducer),
+  __reducerSchema("log_quiz_session", LogQuizSessionReducer),
   __reducerSchema("mark_medication_taken", MarkMedicationTakenReducer),
   __reducerSchema("mark_notification_read", MarkNotificationReadReducer),
   __reducerSchema("register_caretaker", RegisterCaretakerReducer),
   __reducerSchema("register_patient", RegisterPatientReducer),
   __reducerSchema("remove_medication", RemoveMedicationReducer),
   __reducerSchema("save_meeting_summary", SaveMeetingSummaryReducer),
+  __reducerSchema("seed_mock_quiz_history", SeedMockQuizHistoryReducer),
   __reducerSchema("set_safe_zone", SetSafeZoneReducer),
   __reducerSchema("start_meeting", StartMeetingReducer),
   __reducerSchema("trigger_safe_zone_alert", TriggerSafeZoneAlertReducer),

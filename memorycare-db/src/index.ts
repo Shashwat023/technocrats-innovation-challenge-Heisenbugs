@@ -15,8 +15,8 @@ import type { ReducerCtx } from "spacetimedb/server";
 const caretakerIdentity = table(
   { name: "caretaker_identity", public: false },
   {
-    identity:     t.identity().primaryKey(),
-    displayName:  t.string(),
+    identity: t.identity().primaryKey(),
+    displayName: t.string(),
     registeredAt: t.u64(),
   }
 );
@@ -25,7 +25,7 @@ const caretakerIdentity = table(
 const patientIdentity = table(
   { name: "patient_identity", public: false },
   {
-    identity:     t.identity().primaryKey(),
+    identity: t.identity().primaryKey(),
     registeredAt: t.u64(),
   }
 );
@@ -34,12 +34,12 @@ const patientIdentity = table(
 const knownPerson = table(
   { name: "known_person", public: true },
   {
-    personId:   t.string().primaryKey(),
-    name:       t.string(),
-    relation:   t.string(),
+    personId: t.string().primaryKey(),
+    name: t.string(),
+    relation: t.string(),
     currentCue: t.string(),
-    photoUrl:   t.string(),
-    createdAt:  t.u64(),
+    photoUrl: t.string(),
+    createdAt: t.u64(),
   }
 );
 
@@ -47,14 +47,14 @@ const knownPerson = table(
 const liveDetection = table(
   { name: "live_detection", public: true },
   {
-    sessionId:  t.string().primaryKey(),
-    personId:   t.string(),
-    boxX:       t.i32(),
-    boxY:       t.i32(),
-    boxW:       t.i32(),
-    boxH:       t.i32(),
+    sessionId: t.string().primaryKey(),
+    personId: t.string(),
+    boxX: t.i32(),
+    boxY: t.i32(),
+    boxW: t.i32(),
+    boxH: t.i32(),
     confidence: t.f64(),
-    updatedAt:  t.u64(),
+    updatedAt: t.u64(),
   }
 );
 
@@ -63,9 +63,9 @@ const meetingLog = table(
   { name: "meeting_log", public: true },
   {
     sessionId: t.string().primaryKey(),
-    personId:  t.string(),
-    status:    t.string(),   // "active" | "ended"
-    cuesJson:  t.string(),
+    personId: t.string(),
+    status: t.string(),   // "active" | "ended"
+    cuesJson: t.string(),
     startedAt: t.u64(),
   }
 );
@@ -74,11 +74,11 @@ const meetingLog = table(
 const meetingSummary = table(
   { name: "meeting_summary", public: true },
   {
-    sessionId:   t.string().primaryKey(),
-    personId:    t.string(),
-    summary:     t.string(),
+    sessionId: t.string().primaryKey(),
+    personId: t.string(),
+    summary: t.string(),
     meetingDate: t.string(),
-    createdAt:   t.u64(),
+    createdAt: t.u64(),
   }
 );
 
@@ -88,23 +88,23 @@ const medication = table(
   {
     medicationId: t.string().primaryKey(),
     medicineName: t.string(),
-    dose:         t.string(),
-    triggerTime:  t.u64(),
-    status:       t.string(),
-    createdAt:    t.u64(),
+    dose: t.string(),
+    triggerTime: t.u64(),
+    status: t.string(),
+    createdAt: t.u64(),
   }
 );
 
 // medication_schedule [PRIVATE — scheduler table]
 const medicationSchedule = table(
   {
-    name:      "medication_schedule",
+    name: "medication_schedule",
     scheduled: (): typeof triggerMedicationAlert => triggerMedicationAlert,
-    public:    false,
+    public: false,
   },
   {
-    scheduledId:  t.u64().primaryKey().autoInc(),
-    scheduledAt:  t.scheduleAt(),
+    scheduledId: t.u64().primaryKey().autoInc(),
+    scheduledAt: t.scheduleAt(),
     medicationId: t.string(),
   }
 );
@@ -114,11 +114,11 @@ const notification = table(
   { name: "notification", public: true },
   {
     notificationId: t.string().primaryKey(),
-    type:           t.string(),
-    personId:       t.string(),
-    message:        t.string(),
-    isRead:         t.bool(),
-    createdAt:      t.u64(),
+    type: t.string(),
+    personId: t.string(),
+    message: t.string(),
+    isRead: t.bool(),
+    createdAt: t.u64(),
   }
 );
 
@@ -126,12 +126,88 @@ const notification = table(
 const safeZone = table(
   { name: "safe_zone", public: true },
   {
-    zoneId:       t.string().primaryKey(),
-    centerLat:    t.f64(),
-    centerLng:    t.f64(),
+    zoneId: t.string().primaryKey(),
+    centerLat: t.f64(),
+    centerLng: t.f64(),
     radiusMeters: t.f64(),
-    label:        t.string(),
-    updatedAt:    t.u64(),
+    label: t.string(),
+    updatedAt: t.u64(),
+  }
+);
+
+// ─────────────────────────────────────────────────────────────────────────────
+// NEW: ANALYTICS & COGNITIVE QUIZ TABLES
+// ─────────────────────────────────────────────────────────────────────────────
+
+// cognitive_score [PUBLIC]
+const cognitiveScore = table(
+  { name: "cognitive_score", public: true },
+  {
+    scoreId: t.string().primaryKey(),
+    patientId: t.string(),
+    date: t.string(),
+    score: t.i32(),
+    memoryScore: t.i32(),
+    engagementScore: t.i32(),
+    moodScore: t.i32(),
+    notes: t.string(),
+    createdAt: t.u64(),
+  }
+);
+
+// behaviour_event [PUBLIC]
+const behaviourEvent = table(
+  { name: "behaviour_event", public: true },
+  {
+    eventId: t.string().primaryKey(),
+    patientId: t.string(),
+    eventType: t.string(),
+    severity: t.string(),
+    timestamp: t.u64(),
+    durationMinutes: t.i32(),
+    notes: t.string(),
+  }
+);
+
+// sentiment_log [PUBLIC]
+const sentimentLog = table(
+  { name: "sentiment_log", public: true },
+  {
+    logId: t.string().primaryKey(),
+    sessionId: t.string(),
+    personId: t.string(),
+    timestamp: t.u64(),
+    sentimentScore: t.f64(),
+    dominantEmotion: t.string(),
+    emotionConfidence: t.f64(),
+    cueText: t.string(),
+  }
+);
+
+// medication_adherence [PUBLIC]
+const medicationAdherence = table(
+  { name: "medication_adherence", public: true },
+  {
+    date: t.string().primaryKey(),
+    patientId: t.string(),
+    scheduledCount: t.i32(),
+    takenCount: t.i32(),
+    missedCount: t.i32(),
+    adherenceRate: t.i32(),
+  }
+);
+
+// quiz_log [PUBLIC]
+const quizLog = table(
+  { name: "quiz_log", public: true },
+  {
+    quizSessionId: t.string().primaryKey(),
+    patientId: t.string(),
+    accuracyScore: t.f64(),
+    speedScore: t.f64(),
+    averageScore: t.f64(),
+    questionsTaken: t.i32(),
+    createdAt: t.u64(),
   }
 );
 
@@ -150,6 +226,11 @@ const spacetimedb = schema({
   medicationSchedule,
   notification,
   safeZone,
+  cognitiveScore,
+  behaviourEvent,
+  sentimentLog,
+  medicationAdherence,
+  quizLog,
 });
 
 export default spacetimedb;
@@ -203,7 +284,7 @@ export const registerPatient = spacetimedb.reducer(
   (ctx: ReducerCtx) => {
     if (ctx.db.patientIdentity.identity.find(ctx.sender)) return;
     ctx.db.patientIdentity.insert({
-      identity:     ctx.sender,
+      identity: ctx.sender,
       registeredAt: nowMs(),
     });
   }
@@ -216,7 +297,7 @@ export const registerPatient = spacetimedb.reducer(
 export const addKnownPerson = spacetimedb.reducer(
   {
     personId: t.string(),
-    name:     t.string(),
+    name: t.string(),
     relation: t.string(),
     photoUrl: t.string(),
   },
@@ -242,10 +323,10 @@ export const createNewFace = spacetimedb.reducer(
     });
     ctx.db.notification.insert({
       notificationId: `notif_${shortId()}`,
-      type:    "new_face",
+      type: "new_face",
       personId,
       message: "Unknown face detected. Please identify this person.",
-      isRead:  false,
+      isRead: false,
       createdAt: nowMs(),
     });
   }
@@ -258,7 +339,7 @@ export const updatePersonDetails = spacetimedb.reducer(
   }) => {
     // TEMPORARY BYPASS: allow anyone to identify faces during demo
     // assertCaretaker(ctx);
-    
+
     const person = ctx.db.knownPerson.personId.find(personId);
     if (!person) throw new Error(`Person ${personId} not found.`);
     ctx.db.knownPerson.personId.update({ ...person, name, relation });
@@ -272,12 +353,12 @@ export const updatePersonDetails = spacetimedb.reducer(
 
 export const updateLiveDetection = spacetimedb.reducer(
   {
-    sessionId:  t.string(),
-    personId:   t.string(),
-    boxX:       t.i32(),
-    boxY:       t.i32(),
-    boxW:       t.i32(),
-    boxH:       t.i32(),
+    sessionId: t.string(),
+    personId: t.string(),
+    boxX: t.i32(),
+    boxY: t.i32(),
+    boxW: t.i32(),
+    boxH: t.i32(),
     confidence: t.f64(),
   },
   (ctx: ReducerCtx, { sessionId, personId, boxX, boxY, boxW, boxH, confidence }: {
@@ -310,10 +391,10 @@ export const clearLiveDetection = spacetimedb.reducer(
 export const startMeeting = spacetimedb.reducer(
   { sessionId: t.string(), personId: t.string() },
   (ctx: ReducerCtx, { sessionId, personId }: { sessionId: string; personId: string }) => {
-    
+
     // 🔥 NEW SAFETY CHECK: If this meeting ID already exists, quietly ignore the duplicate request
     if (ctx.db.meetingLog.sessionId.find(sessionId)) {
-      return; 
+      return;
     }
 
     let initialCues: string[] = [];
@@ -366,9 +447,9 @@ export const endMeeting = spacetimedb.reducer(
 
 export const saveMeetingSummary = spacetimedb.reducer(
   {
-    sessionId:   t.string(),
-    personId:    t.string(),
-    summary:     t.string(),
+    sessionId: t.string(),
+    personId: t.string(),
+    summary: t.string(),
     meetingDate: t.string(),
   },
   (ctx: ReducerCtx, { sessionId, personId, summary, meetingDate }: {
@@ -393,8 +474,8 @@ export const addMedication = spacetimedb.reducer(
   {
     medicationId: t.string(),
     medicineName: t.string(),
-    dose:         t.string(),
-    triggerTime:  t.u64(),
+    dose: t.string(),
+    triggerTime: t.u64(),
   },
   (ctx: ReducerCtx, { medicationId, medicineName, dose, triggerTime }: {
     medicationId: string; medicineName: string; dose: string; triggerTime: bigint;
@@ -404,8 +485,8 @@ export const addMedication = spacetimedb.reducer(
       medicationId, medicineName, dose, triggerTime, status: "pending", createdAt: nowMs(),
     });
     ctx.db.medicationSchedule.insert({
-      scheduledId:  0n,
-      scheduledAt:  triggerTime,
+      scheduledId: 0n,
+      scheduledAt: triggerTime,
       medicationId,
     });
   }
@@ -419,10 +500,10 @@ export const triggerMedicationAlert = spacetimedb.reducer(
     ctx.db.medication.medicationId.update({ ...med, status: "alerting" });
     ctx.db.notification.insert({
       notificationId: `notif_${shortId()}`,
-      type:      "medication_due",
-      personId:  "",
-      message:   `Medication reminder: ${med.medicineName} ${med.dose}`,
-      isRead:    false,
+      type: "medication_due",
+      personId: "",
+      message: `Medication reminder: ${med.medicineName} ${med.dose}`,
+      isRead: false,
       createdAt: nowMs(),
     });
   }
@@ -471,10 +552,10 @@ export const triggerSafeZoneAlert = spacetimedb.reducer(
   (ctx: ReducerCtx, { lastLat, lastLng }: { lastLat: number; lastLng: number }) => {
     ctx.db.notification.insert({
       notificationId: `notif_${shortId()}`,
-      type:      "safe_zone_breach",
-      personId:  "",
-      message:   `Patient has left the safe zone — last seen at (${lastLat.toFixed(5)}, ${lastLng.toFixed(5)})`,
-      isRead:    false,
+      type: "safe_zone_breach",
+      personId: "",
+      message: `Patient has left the safe zone — last seen at (${lastLat.toFixed(5)}, ${lastLng.toFixed(5)})`,
+      isRead: false,
       createdAt: nowMs(),
     });
   }
@@ -487,5 +568,70 @@ export const markNotificationRead = spacetimedb.reducer(
     const notif = ctx.db.notification.notificationId.find(notificationId);
     if (!notif) return;
     ctx.db.notification.notificationId.update({ ...notif, isRead: true });
+  }
+);
+
+// ─────────────────────────────────────────────────────────────────────────────
+// ANALYTICS & QUIZ REDUCERS
+// ─────────────────────────────────────────────────────────────────────────────
+
+export const logQuizSession = spacetimedb.reducer(
+  {
+    patientId: t.string(),
+    accuracyScore: t.f64(),
+    speedScore: t.f64(),
+    averageScore: t.f64(),
+    questionsTaken: t.i32()
+  },
+  (ctx: ReducerCtx, { patientId, accuracyScore, speedScore, averageScore, questionsTaken }: {
+    patientId: string; accuracyScore: number; speedScore: number; averageScore: number; questionsTaken: number;
+  }) => {
+    ctx.db.quizLog.insert({
+      quizSessionId: `quiz_${shortId()}`,
+      patientId,
+      accuracyScore,
+      speedScore,
+      averageScore,
+      questionsTaken,
+      createdAt: nowMs()
+    });
+  }
+);
+
+// ─────────────────────────────────────────────────────────────────────────────
+// HISTORICAL SEEDING REDUCER
+// ─────────────────────────────────────────────────────────────────────────────
+export const seedMockQuizHistory = spacetimedb.reducer(
+  {
+    patientId: t.string(),
+    days: t.i32()
+  },
+  (ctx: ReducerCtx, { patientId, days }: { patientId: string; days: number }) => {
+    // Current time
+    const ONE_DAY_MS = BigInt(24 * 60 * 60 * 1000);
+    const nowMsLocal = nowMs();
+
+    for (let i = days; i >= 1; i--) {
+      // Create a mock timestamp going back `i` days
+      const backdatedMs = nowMsLocal - (BigInt(i) * ONE_DAY_MS);
+
+      // Add slight variations so data feels authentic
+      const baseAccuracy = 75 + Math.sin(i * 0.4) * 8 + (Math.random() - 0.5) * 10;
+      const baseSpeed = 65 + (i * 0.3) + Math.cos(i * 0.3) * 5 + (Math.random() - 0.5) * 8;
+
+      const accuracy = Math.max(0, Math.min(100, Math.round(baseAccuracy)));
+      const speed = Math.max(0, Math.min(100, Math.round(baseSpeed)));
+      const avg = Math.round((accuracy + speed) / 2);
+
+      ctx.db.quizLog.insert({
+        quizSessionId: `seed_${i}_${shortId()}`,
+        patientId,
+        accuracyScore: accuracy,
+        speedScore: speed,
+        averageScore: avg,
+        questionsTaken: 5,
+        createdAt: backdatedMs
+      });
+    }
   }
 );

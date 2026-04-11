@@ -26,6 +26,12 @@ const AboutPage = lazy(() => import("./pages/AboutPage"));
 const PrivacyPage = lazy(() => import("./pages/PrivacyPage"));
 const ContactPage = lazy(() => import("./pages/ContactPage"));
 
+// Feature modules
+const AnalyticsDashboard = lazy(() => import("./features/analytics/AnalyticsDashboard"));
+const CognitiveQuizWidget = lazy(() => import("./features/cognitive-quiz/CognitiveQuizWidget"));
+const MedicationManager = lazy(() => import("./features/medication/MedicationManager"));
+const GeoTracker = lazy(() => import("./features/geolocation/GeoTracker"));
+
 // Loading fallback
 const PageLoader = () => (
   <div style={{
@@ -80,6 +86,25 @@ const AppRoutes: React.FC = () => (
         <Route path="/about" element={<AboutPage />} />
         <Route path="/privacy" element={<PrivacyPage />} />
         <Route path="/contact" element={<ContactPage />} />
+
+        {/* Feature Routes */}
+        <Route path="/testing-analytics" element={<AnalyticsDashboard />} />
+        <Route path="/quiz" element={
+          <div style={{ padding: "100px 50px 50px", background: "#0d0d14", minHeight: "100vh", display: "flex", alignItems: "center" }}>
+            <div style={{ width: "100%" }}>
+              <CognitiveQuizWidget />
+            </div>
+          </div>
+        } />
+        <Route path="/testing-quiz" element={
+          <div style={{ padding: "100px 50px 50px", background: "#0d0d14", minHeight: "100vh", display: "flex", alignItems: "center" }}>
+            <div style={{ width: "100%" }}>
+              <CognitiveQuizWidget />
+            </div>
+          </div>
+        } />
+        <Route path="/medication" element={<MedicationManager />} />
+        <Route path="/tracking" element={<GeoTracker />} />
       </Routes>
     </Suspense>
   </Layout>

@@ -20,10 +20,10 @@ const MenuIcon = () => (
 const NAV_ITEMS = [
   { to: "/how-it-works", label: "How It Works" },
   { to: "/dashboard", label: "Dashboard" },
-  { to: "/sessions", label: "Sessions" },
-  { to: "/insights", label: "Insights" },
-  { to: "/guide", label: "Guide" },
-  { to: "/about", label: "About" },
+  { to: "/quiz", label: "Quiz" },
+  { to: "/medication", label: "Medication" },
+  { to: "/tracking", label: "Tracking" },
+  { to: "/testing-analytics", label: "Analytics" },
 ];
 
 const Navbar: React.FC = () => {
