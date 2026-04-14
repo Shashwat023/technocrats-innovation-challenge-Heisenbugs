@@ -90,11 +90,7 @@ const FaceDisplay: React.FC<FaceDisplayProps> = ({ sessionId }) => {
           <span className="dot" style={{ background: "var(--success)", boxShadow: "0 0 6px var(--success)" }} />
           Detected Identity
         </div>
-        {liveDetection.confidence > 0 && (
-          <span className="summary-chunk-badge" style={{ backgroundColor: "var(--success-dim)", color: "var(--success)", borderColor: "rgba(34, 197, 94, 0.2)"}}>
-            {Math.round(liveDetection.confidence * 100)}% Match
-          </span>
-        )}
+
       </div>
       
       <div style={{ display: "flex", flexDirection: "column" }}>

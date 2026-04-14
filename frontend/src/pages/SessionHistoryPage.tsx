@@ -10,9 +10,9 @@ import { useSpacetimeTables } from "../hooks/useSpacetimeTables";
 import type { MeetingSummary } from "../spacetime-sdk/types";
 
 const PATIENTS: Record<string, string> = {
-  person_101: "Margaret Johnson",
-  person_102: "Robert Smith",
-  person_103: "Eleanor Davis",
+  person_101: "Shashwat",
+  person_102: "shourya",
+  person_103: "suyash",
 };
 
 // Fixture fallback while STDB syncs

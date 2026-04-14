@@ -59,16 +59,13 @@ const Layout: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const isDemoPage = location.pathname === "/demo";
   const isLandingPage = location.pathname === "/";
 
-  if (isDemoPage) {
-    return <>{children}</>;
-  }
 
   return (
     <>
       <Navbar />
       {children}
       <NotificationBell />
-      {!isLandingPage && <Footer />}
+      {!isLandingPage && !isDemoPage && <Footer />}
     </>
   );
 };

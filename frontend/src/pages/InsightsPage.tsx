@@ -19,9 +19,9 @@ const WEEKLY_DATA = [
 ];
 
 const PATIENT_TRENDS = [
-  { name: "Margaret Johnson", trend: "Stable", score: 82, color: "var(--success)" },
-  { name: "Robert Smith", trend: "Improving", score: 71, color: "var(--accent)" },
-  { name: "Eleanor Davis", trend: "Monitoring", score: 64, color: "var(--warning)" },
+  { name: "Shashwat", trend: "Stable", score: 82, color: "var(--success)" },
+  { name: "shourya", trend: "Improving", score: 71, color: "var(--accent)" },
+  { name: "suyash", trend: "Monitoring", score: 64, color: "var(--warning)" },
 ];
 
 const InsightsPage: React.FC = () => (

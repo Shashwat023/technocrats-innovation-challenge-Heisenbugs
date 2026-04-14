@@ -20,7 +20,7 @@ const PATIENTS: Record<string, {
   careTeam: string[];
 }> = {
   person_101: {
-    name: "Margaret Johnson",
+    name: "Shashwat",
     age: 78,
     diagnosis: "Early-stage Alzheimer's",
     since: "Jan 2026",
@@ -35,7 +35,7 @@ const PATIENTS: Record<string, {
     careTeam: ["Dr. Sarah Chen", "Nurse Maria Santos", "James (son)"],
   },
   person_102: {
-    name: "Robert Smith",
+    name: "shourya",
     age: 82,
     diagnosis: "Moderate cognitive impairment",
     since: "Feb 2026",
@@ -50,7 +50,7 @@ const PATIENTS: Record<string, {
     careTeam: ["Dr. Priya Patel", "Nurse Tom Chen"],
   },
   person_103: {
-    name: "Eleanor Davis",
+    name: "suyash",
     age: 75,
     diagnosis: "Vascular dementia",
     since: "Mar 2026",

@@ -45,9 +45,9 @@ export interface FixtureSessionPlan {
 }
 
 const DEFAULT_CLIENTS: FixtureClientProfile[] = [
-  { id: "person_101", name: "Margaret Johnson", relationship: "Patient" },
-  { id: "person_102", name: "Robert Smith", relationship: "Patient" },
-  { id: "person_103", name: "Eleanor Davis", relationship: "Patient" },
+  { id: "person_101", name: "Shashwat", relationship: "Patient" },
+  { id: "person_102", name: "shourya", relationship: "Patient" },
+  { id: "person_103", name: "suyash", relationship: "Patient" },
 ];
 
 const DEFAULT_CALL_TIMELINE: FixtureCallTimelineStep[] = [

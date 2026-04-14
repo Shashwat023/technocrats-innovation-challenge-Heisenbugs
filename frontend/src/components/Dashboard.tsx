@@ -11,7 +11,7 @@
 // (remote peer) has joined the call (callStatus === "connected").
 
 import React, { useState, useCallback, useRef, useEffect } from "react";
-import { Link } from "react-router-dom";
+
 import VoiceRecorder from "./VoiceRecorder";
 import LiveSummaryBlock from "./LiveSummaryBlock";
 import VideoFeed from "./VideoFeed";
@@ -22,23 +22,17 @@ import { useVoiceRecorder } from "../hooks/useVoiceRecorder";
 import { useWebRTC } from "../hooks/useWebRTC";
 import { endSession, SessionEndResponse } from "../lib/api";
 import { useSpacetime } from "./SpacetimeProvider";
-import { useSpacetimeTables } from "../hooks/useSpacetimeTables";
-import { useLiveDetection } from "../hooks/useLiveDetection";
+
 import { useAgitation } from "../contexts/AgitationContext";
 
 const CLIENTS = [
-  { id: "person_101", name: "Margaret Johnson", relationship: "Patient" },
-  { id: "person_102", name: "Robert Smith", relationship: "Patient" },
-  { id: "person_103", name: "Eleanor Davis", relationship: "Patient" },
+  { id: "person_101", name: "Shashwat", relationship: "Patient" },
+  { id: "person_102", name: "shourya", relationship: "Patient" },
+  { id: "person_103", name: "suyash", relationship: "Patient" },
 ];
 
 // ── Icons ──────────────────────────────────────────────────────────────────────
-const IconBrain = () => (
-  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-    <path d="M9.5 2A2.5 2.5 0 0 1 12 4.5v15a2.5 2.5 0 0 1-4.96-.44 2.5 2.5 0 0 1-2.96-3.08 3 3 0 0 1-.34-5.58 2.5 2.5 0 0 1 1.32-4.24 2.5 2.5 0 0 1 1.98-3A2.5 2.5 0 0 1 9.5 2Z" />
-    <path d="M14.5 2A2.5 2.5 0 0 0 12 4.5v15a2.5 2.5 0 0 0 4.96-.44 2.5 2.5 0 0 0 2.96-3.08 3 3 0 0 0 .34-5.58 2.5 2.5 0 0 0-1.32-4.24 2.5 2.5 0 0 0-1.98-3A2.5 2.5 0 0 0 14.5 2Z" />
-  </svg>
-);
+
 const IconPlay = () => <svg width="15" height="15" viewBox="0 0 24 24" fill="currentColor"><polygon points="5 3 19 12 5 21 5 3" /></svg>;
 const IconStop = () => <svg width="13" height="13" viewBox="0 0 24 24" fill="currentColor"><rect x="3" y="3" width="18" height="18" rx="2" /></svg>;
 const IconClose = () => (
@@ -72,7 +66,7 @@ const Dashboard: React.FC = () => {
 
   // ── Hooks ──────────────────────────────────────────────────────────────────
   const { conn: stdbConn, isConnected: stdbConnected } = useSpacetime();
-  const { knownPersons } = useSpacetimeTables();
+
 
   const { startRecording, stopRecording, isRecording, currentChunk, error: recorderError } =
     useVoiceRecorder(sessionId);
@@ -228,62 +222,11 @@ const Dashboard: React.FC = () => {
   // ── Render ──────────────────────────────────────────────────────────────────
   return (
     <div className="app">
-      <nav className="navbar">
-        <Link to="/" className="nav-brand">
-          <div className="nav-logo"><IconBrain /></div>
-          <div>
-            <div className="nav-wordmark">MemoryCare</div>
-            <div className="nav-subtitle">AI-Assisted Dementia Care</div>
-          </div>
-        </Link>
+      
 
-        <div style={{ display: "flex", alignItems: "center", gap: "0.25rem" }}>
-          {["Home:/", "Dashboard:/dashboard", "Sessions:/sessions", "Insights:/insights"].map((item) => {
-            const [label, path] = item.split(":");
-            return (
-              <Link key={path} to={path} style={{
-                padding: "0.5rem 0.75rem", fontSize: "0.875rem", fontWeight: 500,
-                color: "var(--text-3)", textDecoration: "none", borderRadius: "var(--radius-sm)",
-              }}>{label}</Link>
-            );
-          })}
-        </div>
-
-        <div className="navbar-right">
-          {/* STDB connection indicator */}
-          <span style={{
-            display: "inline-flex", alignItems: "center", gap: "0.375rem",
-            fontSize: "0.6875rem", fontWeight: 600,
-            color: stdbConnected ? "var(--success)" : "var(--text-4)",
-          }}>
-            <span className={`dot ${stdbConnected ? "dot-active" : "dot-idle"}`} style={{ width: 6, height: 6 }} />
-            {stdbConnected ? "DB Live" : "DB Connecting"}
-          </span>
-
-          <span className={`call-badge ${callStatus}`}>
-            {callStatus === "connected" && <><span className="dot dot-active" />Live</>}
-            {callStatus === "waiting" && <><span className="dot dot-pending" />Waiting</>}
-            {callStatus === "connecting" && <><span className="dot dot-pending" />Connecting</>}
-            {callStatus === "idle" && "No call"}
-            {callStatus === "disconnected" && <><span className="dot dot-idle" />Disconnected</>}
-            {callStatus === "error" && "Error"}
-          </span>
-
-          <select
-            className="select"
-            value={selectedClientId}
-            onChange={(e) => setSelectedClientId(e.target.value)}
-            disabled={isSessionActive}
-          >
-            {CLIENTS.map((c) => (
-              <option key={c.id} value={c.id}>{c.name}</option>
-            ))}
-          </select>
-        </div>
-      </nav>
-
-      <main className="main-content">
-        <div className="session-bar" style={{ marginBottom: "1.25rem" }}>
+      <main className="main-content" style={{ paddingTop: "88px" }}>
+        <div className="session-bar" style={{ marginBottom: "1.25rem", display: "flex", flexWrap: "wrap", justifyContent: "space-between" }}>
+          <div style={{ display: "flex", gap: "1rem", alignItems: "center", flexWrap: "wrap" }}>
           {!isSessionActive ? (
             <button className="btn btn-primary" onClick={handleStartSession}>
               <IconPlay /> Start Session
@@ -321,10 +264,43 @@ const Dashboard: React.FC = () => {
           )}
 
           {sessionId && (
-            <span className="session-chip" title={sessionId} style={{ marginLeft: "auto" }}>
+            <span className="session-chip" title={sessionId}>
               {sessionId}
             </span>
           )}
+          </div>
+
+          <div style={{ display: "flex", alignItems: "center", gap: "1rem" }}>
+            {/* STDB connection indicator */}
+            <span style={{
+              display: "inline-flex", alignItems: "center", gap: "0.375rem",
+              fontSize: "0.6875rem", fontWeight: 600,
+              color: stdbConnected ? "var(--success)" : "var(--text-4)",
+            }}>
+              <span className={`dot ${stdbConnected ? "dot-active" : "dot-idle"}`} style={{ width: 6, height: 6 }} />
+              {stdbConnected ? "DB Live" : "DB Connecting"}
+            </span>
+
+            <span className={`call-badge ${callStatus}`}>
+              {callStatus === "connected" && <><span className="dot dot-active" />Live</>}
+              {callStatus === "waiting" && <><span className="dot dot-pending" />Waiting</>}
+              {callStatus === "connecting" && <><span className="dot dot-pending" />Connecting</>}
+              {callStatus === "idle" && "No call"}
+              {callStatus === "disconnected" && <><span className="dot dot-idle" />Disconnected</>}
+              {callStatus === "error" && "Error"}
+            </span>
+
+            <select
+              className="select"
+              value={selectedClientId}
+              onChange={(e) => setSelectedClientId(e.target.value)}
+              disabled={isSessionActive}
+            >
+              {CLIENTS.map((c) => (
+                <option key={c.id} value={c.id}>{c.name}</option>
+              ))}
+            </select>
+          </div>
         </div>
 
         <div className="bento-grid">

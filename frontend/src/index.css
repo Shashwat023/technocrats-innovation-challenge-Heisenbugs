@@ -123,21 +123,6 @@ body::before {
   min-height: 100dvh;
 }
 
-/* ── Header / Navbar — Dashboard navbar ────────────────────────────────────── */
-.navbar {
-  position: sticky;
-  top: 0;
-  z-index: 50;
-  height: var(--header-h);
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  padding: 0 2rem;
-  background: rgba(17,17,20,0.75);
-  backdrop-filter: blur(24px) saturate(180%);
-  border-bottom: 1px solid var(--glass-border);
-}
-
 .nav-brand {
   display: flex;
   align-items: center;
@@ -176,12 +161,6 @@ body::before {
   font-weight: 400;
   line-height: 1;
   margin-top: 1px;
-}
-
-.navbar-right {
-  display: flex;
-  align-items: center;
-  gap: 1rem;
 }
 
 /* ── Main Content ───────────────────────────────────────────────────────────── */
@@ -578,11 +557,17 @@ body::before {
   transition: border-color var(--duration-fast) var(--ease),
               box-shadow var(--duration-fast) var(--ease);
   outline: none;
+  color-scheme: dark;
 }
 .select:hover, .input:hover { border-color: var(--glass-border-hover); }
 .select:focus, .input:focus {
   border-color: var(--accent);
   box-shadow: 0 0 0 3px var(--accent-dim);
+}
+
+.select option {
+  background-color: var(--bg-secondary);
+  color: var(--text-1);
 }
 
 /* ── Status Dots ────────────────────────────────────────────────────────────── */

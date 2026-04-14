@@ -10,9 +10,9 @@ import FadeInSection from "../components/ui/FadeInSection";
 import { useSpacetimeTables } from "../hooks/useSpacetimeTables";
 
 const PATIENTS: Record<string, string> = {
-  person_101: "Margaret Johnson",
-  person_102: "Robert Smith",
-  person_103: "Eleanor Davis",
+  person_101: "Shashwat",
+  person_102: "shourya",
+  person_103: "suyash",
 };
 
 function formatDate(iso: string): string {
